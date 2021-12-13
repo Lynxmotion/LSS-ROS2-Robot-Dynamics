@@ -51,14 +51,16 @@ RobotDynamics::RobotDynamics(
     tfBuffer.setUsingDedicatedThread(true);
 
     declare_parameter("frequency", rclcpp::ParameterValue(10.0f));
-    declare_parameter("model_state_frequency");
+    declare_parameter("model_state_frequency",  rclcpp::ParameterValue(10.0f));
     declare_parameter("diagnostic_period", rclcpp::ParameterValue((rcl_duration_value_t)5));
     declare_parameter("self_manage", rclcpp::ParameterValue(false));
     declare_parameter("joint_controller", rclcpp::ParameterValue("lss_joint_controller"));
     declare_parameter("effort_controller", rclcpp::ParameterValue("/effort_controller/commands"));
     declare_parameter("joint_names", rclcpp::ParameterValue(std::vector<std::string>()));
     declare_parameter("sim_mode", rclcpp::ParameterValue(false));
-    declare_parameter(LEG_SUPPORT_DISTANCE_PARAM);
+
+    // declare as optional
+    declare_parameter(LEG_SUPPORT_DISTANCE_PARAM, rclcpp::PARAMETER_DOUBLE);
 
     if (get_parameter("sim_mode").get_value<bool>()) {
       RCLCPP_INFO(get_logger(), "Simulation mode active");
