@@ -20,8 +20,10 @@ if(CMAKE_COMPILER_IS_GNUCXX)
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-deprecated-copy")
 endif()
 
+set(node_plugins "")
+
 # external dependancies
-find_package(PCL REQUIRED common geometry surface)
+find_package(pcl_ros REQUIRED common geometry surface)
 
 # find ROS dependencies
 find_package(ament_cmake REQUIRED)
@@ -48,6 +50,17 @@ find_package(humanoid_model_msgs REQUIRED)
 
 add_subdirectory(RobotIK)
 add_subdirectory(legacy_robot_dynamics)
+add_subdirectory(robot_dynamics)
+
+#rclcpp_components_register_nodes(robot_dynamics "RobotDynamics")
+rclcpp_components_register_node(robot_dynamics PLUGIN RobotDynamics EXECUTABLE RobotDynamicsNode)
+add_dependencies(RobotDynamicsNode robot_dynamics)
+set(node_plugins "${node_plugins}RobotDynamics;$<TARGET_FILE:robot_dynamics>\n")
+
+#file(GENERATE
+#        OUTPUT
+#        "${CMAKE_CURRENT_BINARY_DIR}/test_ament_index/$<CONFIG>/share/ament_index/resource_index/node_plugin/${PROJECT_NAME}"
+#        CONTENT "${node_plugins}")
 
 if(BUILD_TESTING)
   find_package(ament_lint_auto REQUIRED)
