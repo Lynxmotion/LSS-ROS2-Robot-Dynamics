@@ -210,7 +210,6 @@ double RenderedSegment::render(Expression& expr, KDL::Frame initial_p, Rendering
     double distance = 0;
     if(verb == "rounded") {
         double radius = args.size() ? args[0] : 0.003;
-#if 1
         std::vector<KDL::Frame> frames;
         frames.insert(frames.end(), initial_p);
         //std::cout << "initial: " << initial_p << std::endl;

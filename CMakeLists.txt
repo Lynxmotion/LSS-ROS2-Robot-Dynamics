@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.5)
-project(humanoid_dynamic_model)
+project(robot_dynamics)
 
 # Default to C99
 if(NOT CMAKE_C_STANDARD)
@@ -47,46 +47,7 @@ find_package(kdl_parser REQUIRED)
 find_package(humanoid_model_msgs REQUIRED)
 
 add_subdirectory(RobotIK)
-
-add_executable(legacy_robot_dynamics
-        legacy_robot_dynamics/robot_dynamics.h legacy_robot_dynamics/robot_dynamics.cpp
-        legacy_robot_dynamics/default_main.cpp
-        )
-target_compile_definitions(robot_dynamics PRIVATE NODE_CLASS_TYPE=RobotDynamics NODE_CLASS_INCLUDE="robot_dynamics.h")
-target_include_directories(robot_dynamics PUBLIC
-        ${ROBOTIK_INCLUDE_DIR}
-        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
-        $<INSTALL_INTERFACE:include>)
-link_directories(${PCL_LIBRARY_DIRS})
-target_link_libraries(robot_dynamics
-        robotik-objlib
-        ${humanoid_model_msgs_LIBRARIES}
-        ${PCL_LIBRARIES})
-ament_target_dependencies(robot_dynamics
-        "rclcpp"
-        "urdf"
-        "urdfdom_headers"
-        "tf2"
-        "tf2_kdl"
-        "tf2_ros"
-        "diagnostic_msgs"
-        "lifecycle_msgs"
-        "sensor_msgs"
-        "std_srvs"
-        "nav_msgs"
-        "trajectory_msgs"
-        "visualization_msgs"
-        "interactive_markers"
-        "humanoid_model_msgs"
-        "rclcpp_components"
-        "rclcpp_lifecycle"
-        "orocos_kdl"
-        "kdl_parser")
-
-
-install(TARGETS robot_dynamics
-  EXPORT export_${PROJECT_NAME}
-  DESTINATION lib/${PROJECT_NAME})
+add_subdirectory(legacy_robot_dynamics)
 
 if(BUILD_TESTING)
   find_package(ament_lint_auto REQUIRED)
