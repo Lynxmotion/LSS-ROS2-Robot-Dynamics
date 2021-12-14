@@ -15,15 +15,12 @@
 
 namespace robotik {
 
-Control::Control(std::string interaction_namespace)
-: active(false), override(false), balance(false), loopPreviewDelay(4.0), loopPreview(true),
-    interaction_namespace_(std::move(interaction_namespace)),
-    efforts_updated(false)
+Control::Control(std::string control_namespace, std::string preview_namespace)
+: active(false), override(false), loopPreviewDelay(4.0), loopPreview(true),
+  control_namespace_(std::move(control_namespace)), preview_namespace_(std::move(preview_namespace)),
+  efforts_updated(false)
 {}
 
-std::string Control::interaction_namespace() {
-    return interaction_namespace_;
-}
 
 void Control::activate(Model::SharedPtr model, rclcpp_lifecycle::LifecycleNode& node) {
     model_ = model;
@@ -51,8 +48,6 @@ void Control::activate(Model::SharedPtr model, rclcpp_lifecycle::LifecycleNode& 
             std::bind(&Control::handle_trajectory_goal, this, std::placeholders::_1, std::placeholders::_2),
             std::bind(&Control::handle_trajectory_cancel, this, std::placeholders::_1),
             std::bind(&Control::handle_trajectory_accepted, this, std::placeholders::_1));
-    //if(trajectory_action_server_)
-    //    trajectory_action_server_->on_activate();
 #endif
 
     // publisher for joint trajectory
@@ -92,24 +87,10 @@ void Control::activate(Model::SharedPtr model, rclcpp_lifecycle::LifecycleNode& 
             rmw_qos_profile_services_default,
             nullptr);
 
-    visual = std::make_shared<robotik::StateVisual>("target_pose");
-    //visual->show_only_updated = true;
-    visual->configure(model_);
-
-    trajectoryVisual = std::make_shared<robotik::StateVisual>("trajectory");
-    trajectoryVisual->ghostColor = robotik::Color::White.withAlpha(0.3);
-    //trajectoryVisual->show_only_updated = true;
-    trajectoryVisual->configure(model_);
-    //target.trajectoryVisual->visibility(robotik::TF, 0xffffffff);     // show only segments, no dynamics data
-
     if(joint_trajectory_pub_)
         joint_trajectory_pub_->on_activate();
     if(joint_efforts_pub_)
         joint_efforts_pub_->on_activate();
-    if(visual)
-        visual->activate();
-    if(trajectoryVisual)
-        trajectoryVisual->activate();
 
     active = true;
 }
@@ -122,99 +103,11 @@ void Control::deactivate() {
     joint_trajectory_msg_.reset();
     joint_trajectory_pub_.reset();
 
-    visual->cleanup();
-    trajectoryVisual->cleanup();
-
     jointctrl_get_state_client_.reset();
     jointctrl_change_state_client_.reset();
     jointctrl_get_state_request_.reset();
     jointctrl_change_state_request_.reset();
 }
-
-#if 0
-void Control::setBaseHeight(double standingHeight) {
-    model_->setBaseHeight(standingHeight);
-}
-
-void Control::setBaseHeight(double standingHeight, const State& current, rclcpp::Time _stamp) {
-    // todo: set standing height should do more of the calcs to save effort
-    lastControlUpdate = _stamp;
-    active = true;
-    override = false;
-
-    trajectory.reset();
-    target.reset();
-
-    if(!target) {
-        target = std::make_shared<State>(current);
-    }
-
-    // offset target state from robot
-    KDL::Frame base;
-    if(!target->findTF(model_->base_link, base))
-        return;
-
-    // get base in Euler Roll, Pitch, Yaw
-    double r, p, y;
-    base.M.GetRPY(r, p, y);
-
-    // get the yaw rotation of the bot for rotating leg offsets to match heading
-    KDL::Rotation heading = KDL::Rotation::RPY(0, 0, y);
-    KDL::Vector posOffset(0.2, 0, 0);
-
-    // for now, offset target in space
-    target->transform = current.transform;
-    target->transform.p += heading * posOffset;
-
-/*        // copy joint states from current to target
-    // todo: we need to be smarter about setting body orientation for target, most of this copy is not used once all limbs are configured
-    if(target->joints.size() != current.joints.size()) {
-        target->joints = current.joints;
-        target->alloc(POSITION);
-    }
-    target->position = current.position;*/
-
-    base.p.z(standingHeight);
-    target->tf[model_->base_link] = base;
-
-    // todo: we have to do this since main loop constantly calls control::setaBaseHeught()...we should do better here though
-    model_->setBaseHeight(standingHeight);
-
-    model_->updateNailedContacts(*target);
-    model_->compute_TF_CoM(*target);
-    model_->updateContacts(*target);
-    model_->updateDynamics(*target);
-
-    if(balance)
-       model_->balance(*target);
-
-    std::cout << "base to " << base.p.z() << std::endl;
-
-    return;
-
-    auto traj = std::make_shared<humanoid_model_msgs::msg::MultiSegmentTrajectory>();
-    //traj.header.stamp = now();
-    traj->header.frame_id = model_->odom_link;
-    //traj->segments.
-    humanoid_model_msgs::msg::SegmentTrajectory s1;
-    s1.start.sec = 0;
-    s1.start.nanosec = 0;
-    s1.id = "stand";
-    s1.segment = model_->base_link;
-    s1.profile = trajectory::VelocityTrapezoidalProfile;
-    s1.velocity = 0.06;
-    s1.acceleration = 0.1;
-    s1.path = "rounded";
-    s1.reference_frame = traj->header.frame_id;
-    s1.coordinate_mode = humanoid_model_msgs::msg::SegmentTrajectory::ABSOLUTE;
-
-    s1.points.emplace_back( to_vector(base.p) );
-    s1.rotations.emplace_back( to_quat(base.M) );
-    traj->segments.push_back(s1);
-
-    trajectory_callback(traj);
-}
-#endif
 
 void Control::set_joints(const std::vector<std::string> &joint_names)
 {
@@ -240,122 +133,6 @@ void Control::set_joint_controller_active(bool active)
         jointctrl_change_state_request_->transition.id = lifecycle_msgs::msg::Transition::TRANSITION_DEACTIVATE;
         jointctrl_change_state_future_ = jointctrl_change_state_client_->async_send_request(jointctrl_change_state_request_);
     }
-}
-
-void Control::clear_markers(rclcpp_lifecycle::LifecyclePublisher<visualization_msgs::msg::MarkerArray>::SharedPtr marker_pub)
-{
-    // remove all the markers for the target visualization
-    clear_target_markers(marker_pub);
-    clear_trajectory_markers(marker_pub);
-}
-
-void Control::clear_target_markers(rclcpp_lifecycle::LifecyclePublisher<visualization_msgs::msg::MarkerArray>::SharedPtr marker_pub)
-{
-    marker_pub->publish(*visual->remove());
-}
-
-void Control::clear_trajectory_markers(rclcpp_lifecycle::LifecyclePublisher<visualization_msgs::msg::MarkerArray>::SharedPtr marker_pub)
-{
-    marker_pub->publish(*trajectoryVisual->remove());
-}
-
-void Control::publish_visuals(rclcpp_lifecycle::LifecyclePublisher<visualization_msgs::msg::MarkerArray>::SharedPtr marker_pub) {
-    if(trajectoryVisual) {
-        if(trajectory)
-            marker_pub->publish(*trajectoryVisual->getMarkers());
-        else
-            clear_trajectory_markers(marker_pub);
-    }
-    if(visual) {
-        if(target)
-            marker_pub->publish(*visual->getMarkers());
-        else
-            clear_target_markers(marker_pub);
-    }
-}
-
-void Control::enableManipulators(const State& current, rclcpp::Time _stamp)
-{
-    // todo: set standing height should do more of the calcs to save effort
-    lastUpdate = _stamp;
-    active = true;
-    override = false;
-
-    if(!target) {
-        target = std::make_shared<State>(current);
-    }
-}
-
-bool Control::interact(InteractionEvent& ev) {
-    int updates = 0;
-    rclcpp::Time stamp(ev.header.stamp.sec, ev.header.stamp.nanosec, RCL_ROS_TIME);
-
-    // event is in odom frame, translate back to state transform local coords
-    KDL::Frame evTF = target->transform.Inverse() * ev.tf;
-
-    // Determine what limb this interaction is controlling
-    // For end-effector events we generally match a single limb, however, when moving the base_link frame we generally
-    // end up moving all limbs...but the base end of the limbs and the end-effector stays in place.
-    size_t ln = 0;
-    for(auto& limb: model_->limbs) {
-        auto mode = model_->getLimbMode(ln, *target);
-
-        // recompute IK if we match either the base or end-effector of the limb,
-        // unless the limb is in Limp mode and we are manipulating the base then the limb should float freely
-        if((limb->options_.to_link == ev.segment) || ((limb->options_.from_link == ev.segment) && (mode != Limb::Mode::Limp))) {
-            KDL::Frame baseTF, limbTF;
-            // retrieve the TF for the base and end-effector
-            if(target->findTF(limb->options_.from_link, baseTF) && target->findTF(limb->options_.to_link, limbTF)) {
-                // write the value of the InteractionEvent to the TF depending on if we are updating base or end-effector
-                if(limb->options_.to_link == ev.segment)
-                    limbTF = evTF;     // updating limb part
-                else
-                    baseTF = evTF;     // updating base part
-
-                // limbTF needs to be relative to baseTF (it's currently relative to odom)
-                KDL::Frame relLimbTF = baseTF.Inverse() * limbTF;
-
-                // compute IK for this limb
-                auto limb_target = limb->computePose(*target, relLimbTF);
-                if(!limb_target.empty()) {
-                    // success
-                    target->tf[ev.segment] = evTF;  // store original event TF to target segment
-
-                    // remove this limb as a contact point
-                    model_->interactingSegment = ev.dragging ? ev.segment : "";
-
-                    // updates joints in state
-                    for(auto& joint: limb_target) {
-                        auto jordinal = target->findJoint(joint.name);
-                        if(jordinal >= 0) {
-                            target->joints_updated[jordinal] = true;
-                            target->position(jordinal) = joint.position;
-                        }
-                    }
-
-                    updates++;
-                } else {
-                    // todo: update failed, return the *something
-                }
-            }
-        }
-        ln++;
-    }
-
-    if(updates > 0) {
-        override = true;
-        trajectory.reset();
-
-        if(balance)
-            model_->balance(*target);
-
-        // todo: update these state updates after State dirty detection is implemented
-        model_->compute_TF_CoM(*target);
-        model_->updateContacts(*target);
-        model_->updateDynamics(*target);
-    }
-
-    return updates > 0;
 }
 
 bool Control::renderTrajectory(const State&, rclcpp::Time) {
@@ -548,9 +325,6 @@ bool Control::update(const State& current, rclcpp::Time _now) {
 #endif
                 // if we are executing the trajectory, then the target state will be visualized later
                 if(trajectoryPreview) {
-                    // update the trajectory visual
-                    trajectoryVisual->update(*trajstate);
-
                     // publish preview state to TF
                     model_->publishTransforms(*trajstate, _now, "preview");
                     if(preview_publish_static_tf)
@@ -563,15 +337,6 @@ bool Control::update(const State& current, rclcpp::Time _now) {
         }
 abort_trajectory:
 
-        // send visual state to RViz
-        if (target) {
-            // visualize target
-            visual->update(*target);
-        }
-
-        // balance the robot
-        if(balance)
-            model_->balance(*target);
 
         // update state of target
         // todo: this should be done after target is updated
@@ -686,69 +451,6 @@ void Control::publish_progress() {
 
     }
 #endif
-}
-
-void Control::enable_all_joints(double e) {
-    size_t N = joint_trajectory_msg_->joint_names.size();
-    if(joint_efforts_msg_->data.size() != N)
-        joint_efforts_msg_->data.resize(N);
-    for(size_t j = 0; j < N; j++) {
-        joint_efforts_msg_->data[j] = e;
-    }
-    efforts_updated = true;
-}
-
-void Control::enable_arms(double e) {
-    enable_limbs(e, [](const Limb& l) { return l.options_.model == Limb::Arm; });
-}
-
-void Control::enable_legs(double e) {
-    enable_limbs(e, [](const Limb& l) { return l.options_.model == Limb::Leg; });
-}
-
-void Control::enable_limb(const char* limb, double e) {
-    enable_limbs(e, [limb](const Limb& l) { return l.options_.to_link == limb; });
-}
-
-void Control::enable_limb(const Limb& limb, double e) {
-    enable_limbs(e, [&limb](const Limb& l) { return &l == &limb; });
-}
-
-void Control::enable_limbs(double e, std::function<bool(const Limb&)> filter) {
-    if(!target)
-        return;
-    size_t ln = 0;
-    auto& joint_names = joint_trajectory_msg_->joint_names;
-    for(auto& limb: model_->limbs) {
-        // test if this limb should be updated
-        if(!filter(*limb))
-            continue;
-
-        // get a limb request if it exists
-        if(ln < target->limbs.size()) {
-            auto& req = target->limbs[ln];
-            if(e > 0) {
-                // enable limb
-                if(req.mode == Limb::Limp)
-                    req.mode = Limb::Holding;
-            } else {
-                // disable limb (Limp)
-                req.mode = Limb::Limp;
-            }
-
-            // set the effort on each joint in the limb
-            for(auto ln: limb->joint_names) {
-                // todo: use an index here
-                auto idx = std::find(joint_names.begin(), joint_names.end(), ln);
-                if(idx != joint_names.end()) {
-                    auto n = idx - joint_names.begin();
-                    joint_efforts_msg_->data[ n ] = e;
-                    std::cout << "enabling joint " << ln << " [" << n << "]" << std::endl;
-                }
-            }
-        }
-    }
-    efforts_updated = true;
 }
 
 trajectory::Expression Control::expression_from_msg(

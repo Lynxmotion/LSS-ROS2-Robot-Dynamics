@@ -7,8 +7,6 @@
 
 #include "types.h"
 #include "state.h"
-#include "interaction.h"
-#include "visual.h"
 
 #include <robot_control/trajectory.h>
 
@@ -18,9 +16,6 @@
 #include <lifecycle_msgs/srv/get_state.hpp>
 #include <lifecycle_msgs/srv/change_state.hpp>
 
-#include <visualization_msgs/msg/marker.hpp>
-#include <visualization_msgs/msg/marker_array.hpp>
-
 #include <trajectory_msgs/msg/joint_trajectory.hpp>
 #include <trajectory_msgs/msg/joint_trajectory_point.hpp>
 
@@ -29,26 +24,32 @@
 
 namespace robotik {
 
-class Control : public LimbInteractionController {
+class Control {
 public:
     using SharedPtr = std::shared_ptr<Control>;
 
     bool active;
     bool override;
-    bool balance;
 
     // if 0 or greater, then restart preview time given seconds after end of trajectory,
     // if negative then don't loop, the preview will stay active at the last position until cancelled
     double loopPreviewDelay;
     bool loopPreview;
 
+    Model::SharedPtr model_;
     State::SharedPtr target;
-    std::string interaction_namespace_;
+    std::string control_namespace_;
+    std::string preview_namespace_;
 
     ///@brief the composite trajectory of active end-effectors
     Trajectory::SharedPtr trajectory;
 
-    Control(std::string interaction_namespace = "target");
+    Control(
+            std::string control_namespace = "target",
+            std::string preview_namespace = "preview");
+
+    [[nodiscard]] inline std::string control_namespace() const { return control_namespace_; }
+    [[nodiscard]] inline std::string preview_namespace() const { return preview_namespace_; }
 
     void activate(Model::SharedPtr model, rclcpp_lifecycle::LifecycleNode& node);
     void deactivate();
@@ -61,26 +62,6 @@ public:
     inline double getBaseHeight() const { return model_->baseHeight; }
 #endif
 
-    std::string interaction_namespace() override;
-
-    ///@brief show the target pose and enable manipulators
-    void enableManipulators(const State& current, rclcpp::Time _stamp);
-
-    ///@brief Handle interaction events and modify the target position and trajectory
-    bool interact(InteractionEvent& ev) override;
-
-
-    void enable_all_joints(double e);
-    void enable_arms(double e);
-    void enable_legs(double e);
-    void enable_limb(const char* limb, double e);
-    void enable_limb(const Limb& limb, double e);
-    void enable_limbs(double e, std::function<bool(const Limb&)> filter);
-
-    // clear any trajectory or control state
-    void clear_markers(rclcpp_lifecycle::LifecyclePublisher<visualization_msgs::msg::MarkerArray>::SharedPtr marker_pub);
-    void clear_target_markers(rclcpp_lifecycle::LifecyclePublisher<visualization_msgs::msg::MarkerArray>::SharedPtr marker_pub);
-    void clear_trajectory_markers(rclcpp_lifecycle::LifecyclePublisher<visualization_msgs::msg::MarkerArray>::SharedPtr marker_pub);
 
     ///@brief Update any required trajectories based on current state
     /// Apply trajectories to state
@@ -89,7 +70,6 @@ public:
 
     bool publish();
     void publish_progress();
-    void publish_visuals(rclcpp_lifecycle::LifecyclePublisher<visualization_msgs::msg::MarkerArray>::SharedPtr marker_pub);
 
     void resetTarget(const State& current);
     void resetTrajectory();
@@ -118,9 +98,6 @@ public:
     //        Control is basically the user-program, it updates feet/arm TF, but typically by instantiating Trajectories
     //  (2) model uses Control info to determine how to compute IK (to fit inner joints based on end-effector chains)
     //  (3) model updates TF, CoM, CoP and dynamics
-
-    StateVisual::SharedPtr visual;
-    StateVisual::SharedPtr trajectoryVisual;
 
     bool executeTrajectory;
 

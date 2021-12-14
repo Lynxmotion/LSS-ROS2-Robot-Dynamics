@@ -18,17 +18,9 @@
 #include "rclcpp_lifecycle/lifecycle_node.hpp"
 #include "rclcpp_lifecycle/lifecycle_publisher.hpp"
 
-//#include "kdl/chainidsolver_recursive_newton_euler.hpp"
-//#include "kdl/jntarray.hpp"
-//#include "kdl_parser/kdl_parser.hpp"
-
 #include "../../RobotIK/include/types.h"
 #include <robot_control/control.h>
 
-//#include <tf2/transform_datatypes.h>
-//#include <tf2/LinearMath/Quaternion.h>
-//#include <tf2_kdl/tf2_kdl.h>
-//#include <tf2_ros/transform_listener.h>
 #include <tf2_ros/buffer.h>
 
 #include <urdf_model/model.h>

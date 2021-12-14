@@ -41,11 +41,6 @@ class Dynamics : public rclcpp_lifecycle::LifecycleNode {
 public:
     using CallbackReturn = rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn;
 
-    using JointData = robotik::JointData;
-    using NamedJointData = robotik::NamedJointData;
-    using NamedJointArray = std::vector<robotik::NamedJointData>;
-    using JointMap = robotik::JointMap;
-
     Dynamics();
 
     explicit Dynamics(const rclcpp::NodeOptions & options);

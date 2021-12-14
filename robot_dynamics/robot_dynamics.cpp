@@ -294,41 +294,6 @@ Dynamics::on_activate(const rclcpp_lifecycle::State &)
 
     compliance_params_pub_->on_activate();
 
-    // activate interactive markers
-    // create an interactive marker for our server
-    visualization_msgs::msg::InteractiveMarker int_marker;
-    int_marker.header.frame_id = model_->base_link;
-    //int_marker.header.stamp = now();
-    int_marker.name = "stand-z";
-    int_marker.description = "Control the robot standing height";
-    int_marker.scale = 0.30;
-    int_marker.pose.position.x = 0.05;
-    //int_marker.pose.position.z = model_->baseHeight;
-    int_marker.pose.position.z = 0.06;
-
-
-    // create a cylinder marker
-    visualization_msgs::msg::Marker box_marker;
-    //box_marker.header.frame_id = base_link;
-    box_marker.type = visualization_msgs::msg::Marker::SPHERE;
-    box_marker.scale.x = 0.01;
-    box_marker.scale.y = 0.01;
-    box_marker.scale.z = 0.01;
-    box_marker.color.r = 0.;
-    box_marker.color.g = 0.5;
-    box_marker.color.b = 1.0;
-    box_marker.color.a = 1.0;
-
-    // create a non-interactive control which contains the box
-    visualization_msgs::msg::InteractiveMarkerControl box_control;
-    box_control.always_visible = true;
-    box_control.name = "base_button";
-    box_control.interaction_mode = visualization_msgs::msg::InteractiveMarkerControl::BUTTON;
-    box_control.markers.push_back( box_marker );
-
-    // add the control to the interactive marker
-    int_marker.controls.push_back( box_control );
-
     if(is_simulation)
       resetSim();
     return rv;
