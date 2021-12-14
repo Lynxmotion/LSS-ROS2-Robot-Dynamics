@@ -56,10 +56,12 @@ add_subdirectory(robot_dynamics)
 rclcpp_components_register_node(robot_dynamics PLUGIN "robot_dynamics::Dynamics" EXECUTABLE RobotDynamicsNode)
 add_dependencies(RobotDynamicsNode robot_dynamics)
 
-#file(GENERATE
-#        OUTPUT
-#        "${CMAKE_CURRENT_BINARY_DIR}/test_ament_index/$<CONFIG>/share/ament_index/resource_index/node_plugin/${PROJECT_NAME}"
-#        CONTENT "${node_plugins}")
+
+# Robot Control Component
+add_subdirectory(robot_control)
+rclcpp_components_register_node(robot_control PLUGIN "robot_dynamics::Control" EXECUTABLE RobotControlNode)
+add_dependencies(RobotControlNode robot_control)
+
 
 if(BUILD_TESTING)
   find_package(ament_lint_auto REQUIRED)
