@@ -2,7 +2,7 @@
 // Created by guru on 4/21/20.
 //
 
-#include <trajectory.h>
+#include <robot_control/trajectory.h>
 #include <exception.h>
 
 

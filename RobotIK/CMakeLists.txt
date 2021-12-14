@@ -1,17 +1,15 @@
 
 set(INCLUDE_FILES
-        types.h model.h control.h calibration.h limb.h frame-ref.h
+        types.h model.h calibration.h limb.h frame-ref.h
         contact.h state.h visual.h interaction.h
-        trajectory.h conversions.h imports.h exception.h
+        conversions.h imports.h exception.h
         color.h friction.h
-        trajectory/rendering.h trajectory/expression.h trajectory/environment.h
         kinematics.h
 )
 set(SOURCE_FILES
-        types.cpp model.cpp control.cpp calibration.cpp limb.cpp frame-ref.cpp
+        types.cpp model.cpp calibration.cpp limb.cpp frame-ref.cpp
         contact.cpp state.cpp visual.cpp interaction.cpp
-        trajectory.cpp conversions.cpp color.cpp friction.cpp
-        trajectory/rendering.cpp trajectory/expression.cpp
+        conversions.cpp color.cpp friction.cpp
         kinematics.cpp
 )
 

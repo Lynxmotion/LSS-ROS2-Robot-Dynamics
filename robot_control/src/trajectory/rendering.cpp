@@ -2,7 +2,7 @@
 // Created by guru on 1/5/21.
 //
 
-#include "trajectory/rendering.h"
+#include "robot_control/trajectory/rendering.h"
 
 #include <kdl/trajectory_segment.hpp>
 #include <kdl/trajectory_stationary.hpp>

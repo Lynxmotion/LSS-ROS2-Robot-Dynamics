@@ -2,7 +2,7 @@
 // Created by guru on 1/5/21.
 //
 
-#include "trajectory/expression.h"
+#include "robot_control/trajectory/expression.h"
 
 namespace robotik {
 

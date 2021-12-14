@@ -7,9 +7,10 @@
 
 #include "types.h"
 #include "state.h"
-#include "trajectory.h"
 #include "interaction.h"
 #include "visual.h"
+
+#include <robot_control/trajectory.h>
 
 #include <rclcpp_action/rclcpp_action.hpp>
 #include <std_msgs/msg/float64_multi_array.hpp>

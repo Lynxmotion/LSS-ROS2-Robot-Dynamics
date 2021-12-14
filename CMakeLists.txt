@@ -49,7 +49,9 @@ find_package(kdl_parser REQUIRED)
 find_package(humanoid_model_msgs REQUIRED)
 
 add_subdirectory(RobotIK)
-add_subdirectory(legacy_robot_dynamics)
+
+# disabled because trajectory files are moved out of RobotIK into Control
+#add_subdirectory(legacy_robot_dynamics)
 
 # Robot Dynamics Component
 add_subdirectory(robot_dynamics)

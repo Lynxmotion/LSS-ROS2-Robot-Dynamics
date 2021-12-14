@@ -9,19 +9,8 @@
 #include "lifecycle_msgs/srv/change_state.hpp"
 #include "diagnostic_msgs/msg/diagnostic_array.hpp"
 #include "std_msgs/msg/string.hpp"
-#include "nav_msgs/msg/odometry.hpp"
-#include "sensor_msgs/msg/joint_state.hpp"
-#include "sensor_msgs/msg/imu.hpp"
 
-#include "visualization_msgs/msg/marker.hpp"
-#include "visualization_msgs/msg/marker_array.hpp"
-#include "visualization_msgs/msg/interactive_marker_feedback.hpp"
-#include <interactive_markers/interactive_marker_server.hpp>
-#include <interactive_markers/menu_handler.hpp>
 #include <std_srvs/srv/empty.hpp>
-
-#include "humanoid_model_msgs/msg/compliant_joint_params.hpp"
-#include "humanoid_model_msgs/msg/joint_calibration.hpp"
 
 #include "rclcpp/client.hpp"
 #include "rclcpp/rate.hpp"
@@ -29,15 +18,17 @@
 #include "rclcpp_lifecycle/lifecycle_node.hpp"
 #include "rclcpp_lifecycle/lifecycle_publisher.hpp"
 
-#include "kdl/chainidsolver_recursive_newton_euler.hpp"
-#include "kdl/jntarray.hpp"
-#include "kdl_parser/kdl_parser.hpp"
-#include "../RobotIK/include/types.h"
+//#include "kdl/chainidsolver_recursive_newton_euler.hpp"
+//#include "kdl/jntarray.hpp"
+//#include "kdl_parser/kdl_parser.hpp"
 
-#include <tf2/transform_datatypes.h>
-#include <tf2/LinearMath/Quaternion.h>
-#include <tf2_kdl/tf2_kdl.h>
-#include <tf2_ros/transform_listener.h>
+#include "../../RobotIK/include/types.h"
+#include <robot_control/control.h>
+
+//#include <tf2/transform_datatypes.h>
+//#include <tf2/LinearMath/Quaternion.h>
+//#include <tf2_kdl/tf2_kdl.h>
+//#include <tf2_ros/transform_listener.h>
 #include <tf2_ros/buffer.h>
 
 #include <urdf_model/model.h>
@@ -55,11 +46,6 @@ namespace  robot_dynamics {
 class Control : public rclcpp_lifecycle::LifecycleNode {
 public:
     using CallbackReturn = rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn;
-
-    using JointData = robotik::JointData;
-    using NamedJointData = robotik::NamedJointData;
-    using NamedJointArray = std::vector<robotik::NamedJointData>;
-    using JointMap = robotik::JointMap;
 
     Control();
 
@@ -106,11 +92,6 @@ protected:
 
     rclcpp::Subscription<std_msgs::msg::String>::SharedPtr subscription_robot_description_;
     void robot_description_callback(std_msgs::msg::String::SharedPtr msg);
-
-    // callback when the user interacts with us in RViz2
-    void processFeedback(visualization_msgs::msg::InteractiveMarkerFeedback::ConstSharedPtr feedback);
-    void menuCommand(visualization_msgs::msg::InteractiveMarkerFeedback::ConstSharedPtr feedback);
-    void manipulateMenu(visualization_msgs::msg::InteractiveMarkerFeedback::ConstSharedPtr feedback);
 
     rclcpp::TimerBase::SharedPtr update_timer_;
     rclcpp::TimerBase::SharedPtr diag_timer_;

@@ -2,7 +2,7 @@
 // Created by guru on 3/30/20.
 //
 
-#include "control.h"
+#include <robot_control/control.h>
 #include "conversions.h"
 
 #include <kdl/velocityprofile_trap.hpp>

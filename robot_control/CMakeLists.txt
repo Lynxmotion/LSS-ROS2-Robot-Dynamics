@@ -1,9 +1,17 @@
 
-add_library(robot_control SHARED
-        robot_control.h robot_control.cpp)
+set(INCLUDE_FILES control.h trajectory.h trajectory/environment.h trajectory/expression.h trajectory/rendering.h)
+set(SOURCE_FILES control.cpp robot_control.cpp trajectory.cpp trajectory/expression.cpp trajectory/rendering.cpp)
+
+list(TRANSFORM INCLUDE_FILES PREPEND include/robot_control/)
+list(TRANSFORM SOURCE_FILES PREPEND src/)
+
+include_directories(${CMAKE_CURRENT_SOURCE_DIR}/include/)
+
+add_library(robot_control SHARED ${INCLUDE_FILES} ${SOURCE_FILES})
 
 target_include_directories(robot_control PUBLIC
         ${ROBOTIK_INCLUDE_DIR}
+        ${CMAKE_CURRENT_SOURCE_DIR}/include
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
         $<INSTALL_INTERFACE:include>)
 link_directories(${PCL_LIBRARY_DIRS})

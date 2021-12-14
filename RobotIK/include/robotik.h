@@ -9,7 +9,6 @@
 #include <state.h>
 #include <limb.h>
 #include <visual.h>
-#include <control.h>
 #include <calibration.h>
 #include <interaction.h>
 #include <exception.h>
