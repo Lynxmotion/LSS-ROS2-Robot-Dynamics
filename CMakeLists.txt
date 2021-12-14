@@ -50,12 +50,11 @@ find_package(humanoid_model_msgs REQUIRED)
 
 add_subdirectory(RobotIK)
 add_subdirectory(legacy_robot_dynamics)
-add_subdirectory(robot_dynamics)
 
-#rclcpp_components_register_nodes(robot_dynamics "RobotDynamics")
-rclcpp_components_register_node(robot_dynamics PLUGIN RobotDynamics EXECUTABLE RobotDynamicsNode)
+# Robot Dynamics Component
+add_subdirectory(robot_dynamics)
+rclcpp_components_register_node(robot_dynamics PLUGIN "robot_dynamics::Dynamics" EXECUTABLE RobotDynamicsNode)
 add_dependencies(RobotDynamicsNode robot_dynamics)
-set(node_plugins "${node_plugins}RobotDynamics;$<TARGET_FILE:robot_dynamics>\n")
 
 #file(GENERATE
 #        OUTPUT

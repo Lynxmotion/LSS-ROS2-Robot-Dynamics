@@ -35,8 +35,9 @@
 
 #define LEG_SUPPORT_DISTANCE_PARAM "leg_support_distance"
 
+namespace  robot_dynamics {
 
-class RobotDynamics : public rclcpp_lifecycle::LifecycleNode {
+class Dynamics : public rclcpp_lifecycle::LifecycleNode {
 public:
     using CallbackReturn = rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn;
 
@@ -45,11 +46,11 @@ public:
     using NamedJointArray = std::vector<robotik::NamedJointData>;
     using JointMap = robotik::JointMap;
 
-    RobotDynamics();
+    Dynamics();
 
-    explicit RobotDynamics(const rclcpp::NodeOptions & options);
+    explicit Dynamics(const rclcpp::NodeOptions & options);
 
-    explicit RobotDynamics(
+    explicit Dynamics(
             const std::string & node_name,
             const rclcpp::NodeOptions & options = rclcpp::NodeOptions()
     );
@@ -137,4 +138,4 @@ protected:
     rclcpp_lifecycle::LifecyclePublisher<nav_msgs::msg::Odometry>::SharedPtr odometry_pub_;
 };
 
-
+} // ns:robot_dynamics

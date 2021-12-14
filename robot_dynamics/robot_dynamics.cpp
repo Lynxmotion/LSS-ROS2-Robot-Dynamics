@@ -18,21 +18,26 @@
 
 #include "rclcpp_components/register_node_macro.hpp"
 
-RCLCPP_COMPONENTS_REGISTER_NODE(RobotDynamics)
+// Register the component with class_loader.
+// This acts as a sort of entry point, allowing the component to be discoverable when its library
+// is being loaded into a running process.
+RCLCPP_COMPONENTS_REGISTER_NODE(robot_dynamics::Dynamics)
+
+namespace  robot_dynamics {
 
 using namespace std::chrono_literals;
 
 
-RobotDynamics::RobotDynamics()
-        : RobotDynamics("robot_dynamics") {
+Dynamics::Dynamics()
+        : Dynamics("robot_dynamics") {
 }
 
-RobotDynamics::RobotDynamics(const rclcpp::NodeOptions & options)
-        : RobotDynamics("robot_dynamics", options) {
+Dynamics::Dynamics(const rclcpp::NodeOptions & options)
+        : Dynamics("robot_dynamics", options) {
 }
 
 
-RobotDynamics::RobotDynamics(
+Dynamics::Dynamics(
         const std::string & node_name,
         const rclcpp::NodeOptions & options
 ) : rclcpp_lifecycle::LifecycleNode(node_name, options),
@@ -74,10 +79,10 @@ RobotDynamics::RobotDynamics(
     model_ = std::make_shared<robotik::Model>();
 
     // intercept parameter changes
-    old_parameter_set_callback = add_on_set_parameters_callback(std::bind(&RobotDynamics::parameter_set_callback, this, std::placeholders::_1));
+    old_parameter_set_callback = add_on_set_parameters_callback(std::bind(&Dynamics::parameter_set_callback, this, std::placeholders::_1));
 }
 
-void RobotDynamics::robot_description_callback(std_msgs::msg::String::SharedPtr msg)
+void Dynamics::robot_description_callback(std_msgs::msg::String::SharedPtr msg)
 {
     // todo: SRDF must be loaded via topic!!
 #if 0
@@ -125,7 +130,7 @@ void RobotDynamics::robot_description_callback(std_msgs::msg::String::SharedPtr 
 }
 
 rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn
-RobotDynamics::on_configure(const rclcpp_lifecycle::State &)
+Dynamics::on_configure(const rclcpp_lifecycle::State &)
 {
     RCLCPP_INFO(get_logger(), "configuring robot dynamics");
 
@@ -137,7 +142,7 @@ RobotDynamics::on_configure(const rclcpp_lifecycle::State &)
     subscription_robot_description_ = this->create_subscription<std_msgs::msg::String>(
         "robot_description",
         rclcpp::QoS(1).transient_local(),
-        std::bind(&RobotDynamics::robot_description_callback, this, std::placeholders::_1)
+        std::bind(&Dynamics::robot_description_callback, this, std::placeholders::_1)
     );
 #else
     std::string urdf_base_path = "/home/guru/src/lss-humanoid/ros2/humanoid/src/lss_humanoid/urdf/";
@@ -158,8 +163,8 @@ RobotDynamics::on_configure(const rclcpp_lifecycle::State &)
 #endif
 
     using callback_t = std::function<void(tf2_msgs::msg::TFMessage::SharedPtr)>;
-    callback_t cb = std::bind(&RobotDynamics::tf_callback, this, std::placeholders::_1, false);
-    callback_t static_cb = std::bind(&RobotDynamics::tf_callback, this, std::placeholders::_1, true);
+    callback_t cb = std::bind(&Dynamics::tf_callback, this, std::placeholders::_1, false);
+    callback_t static_cb = std::bind(&Dynamics::tf_callback, this, std::placeholders::_1, true);
     subscription_tf_ = this->create_subscription<tf2_msgs::msg::TFMessage>(
         "/tf",
         10,
@@ -188,7 +193,7 @@ RobotDynamics::on_configure(const rclcpp_lifecycle::State &)
     update_timer_ = create_wall_timer(
             std::chrono::duration_cast<std::chrono::nanoseconds>(
                     std::chrono::duration<double>(1.0 / frequency)),
-            std::bind(&RobotDynamics::publish, this));
+            std::bind(&Dynamics::publish, this));
 
     double model_state_frequency = frequency;
     if(has_parameter("model_state_frequency")) {
@@ -204,20 +209,20 @@ RobotDynamics::on_configure(const rclcpp_lifecycle::State &)
     model_state_timer_ = create_wall_timer(
             std::chrono::duration_cast<std::chrono::nanoseconds>(
                     std::chrono::duration<double>(1.0 / model_state_frequency)),
-            std::bind(&RobotDynamics::publish_model_state, this));
+            std::bind(&Dynamics::publish_model_state, this));
 
     rclcpp::Parameter diagnostic_period = get_parameter("diagnostic_period");
     diag_timer_ = create_wall_timer(
             std::chrono::duration_cast<std::chrono::nanoseconds>(
                     std::chrono::duration<rcl_duration_value_t>(
                             diagnostic_period.get_value<rcl_duration_value_t>())),
-            std::bind(&RobotDynamics::publish_diagnostics, this));
+            std::bind(&Dynamics::publish_diagnostics, this));
 
     return rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn::SUCCESS;
 }
 
 rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn
-RobotDynamics::on_cleanup(const rclcpp_lifecycle::State &)
+Dynamics::on_cleanup(const rclcpp_lifecycle::State &)
 {
     // free our channels
     update_timer_.reset();
@@ -240,7 +245,7 @@ RobotDynamics::on_cleanup(const rclcpp_lifecycle::State &)
 }
 
 rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn
-RobotDynamics::on_shutdown(const rclcpp_lifecycle::State &)
+Dynamics::on_shutdown(const rclcpp_lifecycle::State &)
 {
     RCLCPP_INFO(get_logger(), "shutting down robot dynamics");
 
@@ -263,7 +268,7 @@ RobotDynamics::on_shutdown(const rclcpp_lifecycle::State &)
 }
 
 rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn
-RobotDynamics::on_activate(const rclcpp_lifecycle::State &)
+Dynamics::on_activate(const rclcpp_lifecycle::State &)
 {
     RCLCPP_INFO(get_logger(), "activating robot dynamics");
     CallbackReturn rv = CallbackReturn::SUCCESS;
@@ -271,12 +276,12 @@ RobotDynamics::on_activate(const rclcpp_lifecycle::State &)
     // subscribe to joint state messages
     joint_state_subscription_ = this->create_subscription<sensor_msgs::msg::JointState>(
             "joint_states", 10,
-            std::bind(&RobotDynamics::joint_states_callback, this, std::placeholders::_1));
+            std::bind(&Dynamics::joint_states_callback, this, std::placeholders::_1));
 
     subscription_imu_ = this->create_subscription<sensor_msgs::msg::Imu>(
             "/imu/data",
             rclcpp::SensorDataQoS(),
-            std::bind(&RobotDynamics::imu_callback, this, std::placeholders::_1));
+            std::bind(&Dynamics::imu_callback, this, std::placeholders::_1));
 
 
     // odometry publisher
@@ -330,7 +335,7 @@ RobotDynamics::on_activate(const rclcpp_lifecycle::State &)
 }
 
 rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn
-RobotDynamics::on_deactivate(const rclcpp_lifecycle::State &)
+Dynamics::on_deactivate(const rclcpp_lifecycle::State &)
 {
     RCLCPP_INFO(get_logger(), "deactivating robot dynamics");
 
@@ -350,7 +355,7 @@ RobotDynamics::on_deactivate(const rclcpp_lifecycle::State &)
 }
 
 rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn
-RobotDynamics::on_error(const rclcpp_lifecycle::State &)
+Dynamics::on_error(const rclcpp_lifecycle::State &)
 {
     RCLCPP_INFO(get_logger(), "robot dynamics has entered error state");
 
@@ -363,7 +368,7 @@ RobotDynamics::on_error(const rclcpp_lifecycle::State &)
     return rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn::SUCCESS;
 }
 
-void RobotDynamics::resetSim()
+void Dynamics::resetSim()
 {
   rclcpp::Client<std_srvs::srv::Empty>::SharedPtr client =
       create_client<std_srvs::srv::Empty>("/reset_simulation");
@@ -392,7 +397,7 @@ void RobotDynamics::resetSim()
 
 std::map<std::string, double> top_efforts;
 
-void RobotDynamics::updateRobotState()
+void Dynamics::updateRobotState()
 {
     auto _now = now();
 
@@ -445,7 +450,7 @@ void RobotDynamics::updateRobotState()
     }
 }
 
-rcl_interfaces::msg::SetParametersResult RobotDynamics::parameter_set_callback(const std::vector<rclcpp::Parameter> & params) {
+rcl_interfaces::msg::SetParametersResult Dynamics::parameter_set_callback(const std::vector<rclcpp::Parameter> & params) {
     for(auto& p: params) {
         auto name = p.get_name();
         bool isNumber = p.get_type() == rclcpp::PARAMETER_DOUBLE || p.get_type() == rclcpp::PARAMETER_INTEGER;
@@ -472,7 +477,7 @@ rcl_interfaces::msg::SetParametersResult RobotDynamics::parameter_set_callback(c
     return res;
 }
 
-void RobotDynamics::joint_states_callback(const sensor_msgs::msg::JointState::SharedPtr msg)
+void Dynamics::joint_states_callback(const sensor_msgs::msg::JointState::SharedPtr msg)
 {
     // keep track of all joint positions
     auto positions = msg->position.size();
@@ -498,7 +503,7 @@ void RobotDynamics::joint_states_callback(const sensor_msgs::msg::JointState::Sh
     control.lastJointStateUpdate = now();
 }
 
-void RobotDynamics::tf_callback( tf2_msgs::msg::TFMessage::SharedPtr msg, bool /* is_static */)
+void Dynamics::tf_callback(tf2_msgs::msg::TFMessage::SharedPtr msg, bool /* is_static */)
 {
     if(model_ && current.state) {
         auto segments = model_->tree_->getSegments();
@@ -531,7 +536,7 @@ void RobotDynamics::tf_callback( tf2_msgs::msg::TFMessage::SharedPtr msg, bool /
     }
 }
 
-void RobotDynamics::imu_callback(sensor_msgs::msg::Imu::SharedPtr imu)
+void Dynamics::imu_callback(sensor_msgs::msg::Imu::SharedPtr imu)
 {
     model_->senseIMU(*current.state, *imu);
 }
@@ -539,7 +544,7 @@ void RobotDynamics::imu_callback(sensor_msgs::msg::Imu::SharedPtr imu)
 const double standHeightMin = 0.153;
 const double standHeightMax = 0.271;
 
-void RobotDynamics::publish() try {
+void Dynamics::publish() try {
     //RCLCPP_DEBUG(get_logger(), "Querying for current IMU data");
     rclcpp::Time stamp = now();
 
@@ -565,7 +570,7 @@ void RobotDynamics::publish() try {
 }
 
 
-void RobotDynamics::publish_model_state() try {
+void Dynamics::publish_model_state() try {
     if(current.state)
         model_->publishModelState(*current.state, now());
 } catch (std::exception & e) {
@@ -573,16 +578,11 @@ void RobotDynamics::publish_model_state() try {
     deactivate();
 }
 
-void RobotDynamics::publish_diagnostics() try {
+void Dynamics::publish_diagnostics() try {
 
 } catch (std::exception & e) {
     RCLCPP_ERROR(get_logger(), "Failed to poll and publish data: %s", e.what());
     deactivate();
 }
 
-#include "rclcpp_components/register_node_macro.hpp"
-
-// Register the component with class_loader.
-// This acts as a sort of entry point, allowing the component to be discoverable when its library
-// is being loaded into a running process.
-RCLCPP_COMPONENTS_REGISTER_NODE(RobotDynamics)
+} //ns: robot_dynamics
