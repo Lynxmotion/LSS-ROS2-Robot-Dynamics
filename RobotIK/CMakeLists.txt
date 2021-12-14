@@ -1,15 +1,15 @@
 
 set(INCLUDE_FILES
-        types.h model.h calibration.h limb.h frame-ref.h
-        contact.h state.h visual.h interaction.h
+        types.h model.h limb.h frame-ref.h
+        contact.h state.h
         conversions.h imports.h exception.h
-        color.h friction.h
+        friction.h
         kinematics.h
 )
 set(SOURCE_FILES
-        types.cpp model.cpp calibration.cpp limb.cpp frame-ref.cpp
-        contact.cpp state.cpp visual.cpp interaction.cpp
-        conversions.cpp color.cpp friction.cpp
+        types.cpp model.cpp limb.cpp frame-ref.cpp
+        contact.cpp state.cpp
+        conversions.cpp friction.cpp
         kinematics.cpp
 )
 

@@ -8,9 +8,6 @@
 #include <model.h>
 #include <state.h>
 #include <limb.h>
-#include <visual.h>
-#include <calibration.h>
-#include <interaction.h>
 #include <exception.h>
 
 #endif //LSS_HUMANOID_ROBOTIK_H
