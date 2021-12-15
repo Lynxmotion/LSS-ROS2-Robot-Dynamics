@@ -63,11 +63,6 @@ public:
         /// and Stepping would be invalid.
         bool supportive;
 
-        ///@brief true if this limb is enabled for manipulation
-        /// If the manipulation module is enabled in RViz and this value is set then a multi-axis manipulator will be
-        /// show in the RViz UI and the user can drag limbs around space.
-        bool manipulator;
-
         ///@brief Where we want the end effector to go
         /// This frame is relative to the limb base frame (usually the base link). We may not be able to take a direct
         /// flight, that is up to the trajectory planner and controller.

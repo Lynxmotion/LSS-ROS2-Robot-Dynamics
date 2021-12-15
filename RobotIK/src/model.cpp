@@ -330,13 +330,11 @@ void Model::publishModelState(State& state, rclcpp::Time now, std::string prefix
     model_state_msg_->header.frame_id = prefix + state.relativeFrameName;
     model_state_msg_->header.stamp = now;
     model_state_msg_->mass = state.mass;
-    model_state_msg_->base_height = state.baseHeightFromFloor();
     kdl_vector_to_vector(state.CoM, model_state_msg_->center_of_mass);
-    kdl_rotation_to_quat(state.imu, model_state_msg_->imu);
 
     KDL::Frame base_f;
     if(state.findTF(base_link, base_f))
-        kdl_frame_to_transform(base_f, model_state_msg_->base);
+        kdl_frame_to_transform(base_f, model_state_msg_->base_pose);
 
     // joint forces
     auto joint_force_count = state.internalForces.rows();
@@ -365,14 +363,12 @@ void Model::publishModelState(State& state, rclcpp::Time now, std::string prefix
     //
     // contact state
     //
-    auto& contact_state = model_state_msg_->contact;
+    auto& contact_state = model_state_msg_->support;
     auto limb_count = state.limbs.size();
     auto contact_count = state.contacts.size();
 
     kdl_vector_to_vector(state.CoP, contact_state.center_of_pressure);
-    contact_state.balanced = state.balanceHealth();
-    contact_state.supported = state.inSupport;
-
+    
     // support polygon points
     kdl_vector_to_vector(state.supportPolygon, contact_state.support_polygon);
 
@@ -384,17 +380,17 @@ void Model::publishModelState(State& state, rclcpp::Time now, std::string prefix
     }
 
     // limbs
-    if(limb_count != contact_state.limbs.size())
-        contact_state.limbs.resize(limb_count);
+    if(limb_count != model_state_msg_->limbs.size())
+        model_state_msg_->limbs.resize(limb_count);
     for(size_t i=0; i < limb_count; i++) {
-        auto& ml = contact_state.limbs[i];
+        auto& ml = model_state_msg_->limbs[i];
         auto& sl = state.limbs[i];
         ml.name = limbs[i]->options_.to_link;
         ml.mode = sl.mode;
         ml.type = sl.limbType;
         ml.supportive = sl.supportive;
         ml.supporting = supporting[i];
-        kdl_frame_to_pose(sl.targetTF, ml.target);
+        kdl_frame_to_pose(sl.targetTF, ml.position);
     }
 
     // contacts
@@ -711,11 +707,10 @@ bool Model::updateContacts(State& state) {
     double minZ = NAN;
     unsigned limbid = 0;
     for(auto& limb: limbs) {
-        Contact contact;
+        Contact contact(limbid++);
 
         // todo: this should be computing pressures relative to the gravity vector but for simplicity we'll stick with just x,y
         contact.name = limb->options_.to_link;
-        contact.limb = limbid++;
 
         // find existing contact
         auto existing_contact_itr = std::find_if(state.contacts.begin(), state.contacts.end(),
@@ -1108,7 +1103,7 @@ void Model::balance(State& state) {
     balance(state, state);
 }
 
-void Model::balance(State& state, const ContactState& contacts) {
+void Model::balance(State& state, const SupportState& contacts) {
     auto &base = state.tf[base_link];
 
     // get base in Eular Roll, Pitch, Yaw

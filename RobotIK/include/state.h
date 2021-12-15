@@ -190,7 +190,7 @@ public:
 };
 
 
-class ContactState {
+class SupportState {
     // todo: would be great if this was more segment-in-contact instead of limb-in-contact, robot may contact in the knee or elbow too
     //    this is different from using an elbow as an end-effector, for that the user would need to create a temp end-effector (limb) and
     //    command it. It's still ok to add references to limbs though just for convenience but algorithms should be ok without it.
@@ -198,7 +198,7 @@ protected:
     double _baseHeightFromFloor;
 
 public:
-    ContactState();
+    SupportState();
 
     StateStamp segmentStamp;
 
@@ -241,7 +241,7 @@ public:
 
     ///@brief Return the position of the base link frame from the assumed floor
     /// This height is already built into the state transform value so the robot always visualizes standing on the floor.
-    inline double baseHeightFromFloor() const { return _baseHeightFromFloor; }
+    [[nodiscard]] inline double baseHeightFromFloor() const { return _baseHeightFromFloor; }
     inline void baseHeightFromFloor(double height_in_Z) { _baseHeightFromFloor = height_in_Z; }
 };
 
@@ -254,7 +254,7 @@ public:
 };
 
 
-class State : public StateFrame, public JointAndSegmentState, public LimbState, public ContactState {
+class State : public StateFrame, public JointAndSegmentState, public LimbState, public SupportState {
 public:
     using SharedPtr = std::shared_ptr<State>;
 

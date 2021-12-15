@@ -30,7 +30,7 @@ State::State()
 }
 
 State::State(const State& copy)
-    : StateFrame(copy), JointAndSegmentState(copy), LimbState(copy), ContactState(copy), type(copy.type)
+    : StateFrame(copy), JointAndSegmentState(copy), LimbState(copy), SupportState(copy), type(copy.type)
 {
     // clearing updated fields since we've taken a copy we expect all
     // joints and segments return to unupdated state
@@ -101,7 +101,7 @@ void State::zero() {
     JointState::zero();
     SegmentState::zero();
     LimbState::zero();
-    ContactState::zero();
+    SupportState::zero();
 }
 
 void State::alloc(unsigned int allocateParameterMask) {
@@ -198,19 +198,19 @@ void LimbState::zero()
 }
 
 
-ContactState::ContactState()
+SupportState::SupportState()
     : _baseHeightFromFloor(0)
 {
 }
 
-void ContactState::zero() {
+void SupportState::zero() {
     _baseHeightFromFloor = 0;
     contacts.clear();
     supportPolygon.clear();
     CoP.Zero();
 }
 
-bool ContactState::pointInSupport(const KDL::Vector& point) const {
+bool SupportState::pointInSupport(const KDL::Vector& point) const {
     if (supportPolygon.size() < 3)
         return false;
     int positive_direction = 0;
@@ -233,7 +233,7 @@ bool ContactState::pointInSupport(const KDL::Vector& point) const {
     return true;
 }
 
-double ContactState::balanceHealth()
+double SupportState::balanceHealth()
 {
     return inSupport ? 1.0 : 0.0;
 }

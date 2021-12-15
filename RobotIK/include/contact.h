@@ -15,7 +15,7 @@ namespace robotik {
 class Contact {
 public:
     std::string name;
-    unsigned long limb;
+    unsigned short limb;
     double distance;             // distance to CoM
     unsigned int j_nr;
     KDL::Frame tf;               // frame of the foot joint, but already in SegmentState::tf
@@ -34,7 +34,7 @@ public:
     /// point of slippage. A value greater than 1 indicates a very high possibility of slippage according to known forces.
     //double slipping;      // todo: currently 0 in ModelState msg
 
-    inline Contact() : j_nr(0), staticFriction(0) {}
+    inline Contact(unsigned short limb_n) : limb(limb_n), j_nr(0), staticFriction(0) {}
 };
 
 } // ns::robotik
