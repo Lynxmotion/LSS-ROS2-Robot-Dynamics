@@ -69,7 +69,6 @@ public:
     bool update(const State& current, rclcpp::Time _now);
 
     bool publish();
-    void publish_progress();
 
     void resetTarget(const State& current);
     void resetTrajectory();

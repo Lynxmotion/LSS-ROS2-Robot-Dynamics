@@ -60,7 +60,7 @@ public:
 
     JointState& operator=(const JointState& copy) = default;
 
-    StateStamp jointStamp;
+    rclcpp::Time lastJointStateUpdate;
 
     ///@brief Joint names
     /// Be aware that for every joint array it must either have zero elements (if unused) or the same number of elements

@@ -32,6 +32,7 @@
 #include <string>
 #include <limb.h>
 #include <raf.h>
+#include <listeners/JointStateListener.h>
 
 namespace  robot_dynamics {
 
@@ -84,6 +85,8 @@ protected:
 
     rclcpp::Subscription<std_msgs::msg::String>::SharedPtr subscription_robot_description_;
     void robot_description_callback(std_msgs::msg::String::SharedPtr msg);
+
+    robotik::JointStateListener::SharedPtr joint_state_listener;
 
     rclcpp::TimerBase::SharedPtr update_timer_;
     rclcpp::TimerBase::SharedPtr diag_timer_;

@@ -189,8 +189,6 @@ public:
     // todo: get rid of this rendered state flag
     trajectory::RenderState state;
 
-    std::map<std::string, robot_model_msgs::msg::TrajectoryProgress> progress_reports;
-
     explicit Trajectory(Model::SharedPtr _model)
     : model(_model), kinematics(_model), state(trajectory::Pending) {
     }

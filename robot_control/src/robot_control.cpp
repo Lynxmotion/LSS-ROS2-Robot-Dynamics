@@ -47,8 +47,13 @@ Control::Control(
     declare_parameter("frequency", rclcpp::ParameterValue(10.0f));
     declare_parameter("diagnostic_period", rclcpp::ParameterValue((rcl_duration_value_t)5));
     declare_parameter("self_manage", rclcpp::ParameterValue(false));
+
     declare_parameter("joint_controller", rclcpp::ParameterValue("lss_joint_controller"));
     declare_parameter("effort_controller", rclcpp::ParameterValue("/effort_controller/commands"));
+
+    declare_parameter("joint_state_topic", rclcpp::ParameterValue("joint_states"));
+    declare_parameter("model_state_topic", rclcpp::ParameterValue("robot_dynamics/model_state"));
+    declare_parameter("tf_topic", rclcpp::ParameterValue("tf"));
 
     if (get_parameter("self_manage").get_value<bool>()) {
         change_state_request_ = std::make_shared<lifecycle_msgs::srv::ChangeState::Request>();
@@ -245,9 +250,6 @@ void Control::updateRobotState()
             if(current.state && current.control->update(*current.state, _now)) {
                 // send target state to (typically) ros2 controls
                 current.control->publish();
-
-                // todo: don't publish this as often
-                current.control->publish_progress();
             }
         }
     } catch(robotik::Exception& e) {

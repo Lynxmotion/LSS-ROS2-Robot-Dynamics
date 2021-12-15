@@ -431,28 +431,6 @@ void Control::publish_efforts() {
     }
 }
 
-void Control::publish_progress() {
-#if 0
-    if(progress_pub_ && trajectory) {
-        std::vector<std::string> expired;
-        for(auto t=trajectory->progress_reports.begin(), _t=trajectory->progress_reports.end();
-                t != _t; t++) {
-            progress_msg_->segments.insert(progress_msg_->segments.end(), t->second);
-            if(t->second.progress >= 1.0)
-                expired.insert(expired.end(), t->first);
-        }
-
-        // delete any segments that have expired/completed
-        for(const auto& d: expired)
-            trajectory->progress_reports.erase(d);
-
-        // publish the progress
-        progress_pub_->publish(*progress_msg_);
-
-    }
-#endif
-}
-
 trajectory::Expression Control::expression_from_msg(
         robot_model_msgs::msg::SegmentTrajectory seg,
         std::string default_reference_frame,
