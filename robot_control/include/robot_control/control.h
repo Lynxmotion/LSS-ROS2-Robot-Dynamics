@@ -106,13 +106,13 @@ protected:
     State::SharedPtr trajectoryState;
 
     trajectory::Expression expression_from_msg(
-            humanoid_model_msgs::msg::SegmentTrajectory msg,
+            robot_model_msgs::msg::SegmentTrajectory msg,
             std::string default_reference_frame,
             const rclcpp::Time& now);
 
     // subscribe to trajectory messages
-    rclcpp::Subscription<humanoid_model_msgs::msg::MultiSegmentTrajectory>::SharedPtr trajectory_sub_;
-    void trajectory_callback(humanoid_model_msgs::msg::MultiSegmentTrajectory::SharedPtr msg);
+    rclcpp::Subscription<robot_model_msgs::msg::MultiSegmentTrajectory>::SharedPtr trajectory_sub_;
+    void trajectory_callback(robot_model_msgs::msg::MultiSegmentTrajectory::SharedPtr msg);
 
     // trajectory publisher
     trajectory_msgs::msg::JointTrajectory::SharedPtr joint_trajectory_msg_;
@@ -125,8 +125,8 @@ protected:
     void publish_efforts();
 
 #ifndef TRAJECTORY_ACTION_SERVER
-    humanoid_model_msgs::msg::MultiTrajectoryProgress::SharedPtr progress_msg_;
-    rclcpp_lifecycle::LifecyclePublisher<humanoid_model_msgs::msg::MultiTrajectoryProgress>::SharedPtr progress_pub_;
+    robot_model_msgs::msg::MultiTrajectoryProgress::SharedPtr progress_msg_;
+    rclcpp_lifecycle::LifecyclePublisher<robot_model_msgs::msg::MultiTrajectoryProgress>::SharedPtr progress_pub_;
 #else
     // trajectory progress publisher
     rclcpp_action::Server<trajectory::EffectorTrajectory>::SharedPtr trajectory_action_server_;

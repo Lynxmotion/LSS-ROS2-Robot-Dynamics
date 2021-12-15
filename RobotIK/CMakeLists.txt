@@ -25,7 +25,6 @@ find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(rclcpp_lifecycle REQUIRED)
 find_package(sensor_msgs REQUIRED)
-find_package(humanoid_model_msgs REQUIRED)
 find_package(urdf REQUIRED)
 find_package(urdfdom_headers REQUIRED)
 find_package(srdfdom REQUIRED)
@@ -37,6 +36,7 @@ find_package(visualization_msgs REQUIRED)
 find_package(interactive_markers REQUIRED)
 find_package(orocos_kdl REQUIRED)
 find_package(kdl_parser REQUIRED)
+find_package(robot_model_msgs REQUIRED)
 
 # we first add our intermediate object library
 # which will them be linked into an archive and a shared library
@@ -56,7 +56,7 @@ ament_target_dependencies(robotik-objlib
         "tf2_kdl"
         "tf2_ros"
         "sensor_msgs"
-        "humanoid_model_msgs"
+        "robot_model_msgs"
         "visualization_msgs"
         "interactive_markers"
         "orocos_kdl"

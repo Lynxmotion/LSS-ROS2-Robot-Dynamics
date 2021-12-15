@@ -210,14 +210,14 @@ RobotDynamics::on_configure(const rclcpp_lifecycle::State &)
             10);
 
     // extended joint compliance parameters
-    compliance_params_pub_ = this->create_publisher<humanoid_model_msgs::msg::CompliantJointParams>(
+    compliance_params_pub_ = this->create_publisher<robot_model_msgs::msg::CompliantJointParams>(
             "compliance/params",
             10);
-    compliance_params_msg_ = std::make_shared<humanoid_model_msgs::msg::CompliantJointParams>();
+    compliance_params_msg_ = std::make_shared<robot_model_msgs::msg::CompliantJointParams>();
 
     // calibration message and publisher
-    calibration_msg_ = std::make_shared<humanoid_model_msgs::msg::JointCalibration>();
-    calibration_pub_ = this->create_publisher<humanoid_model_msgs::msg::JointCalibration>(
+    calibration_msg_ = std::make_shared<robot_model_msgs::msg::JointCalibration>();
+    calibration_pub_ = this->create_publisher<robot_model_msgs::msg::JointCalibration>(
             "joint_calibration",
             10);
 

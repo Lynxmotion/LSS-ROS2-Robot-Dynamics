@@ -200,8 +200,8 @@ void Model::on_activate(rclcpp_lifecycle::LifecycleNode& node) {
   tf_broadcaster = std::make_unique<tf2_ros::TransformBroadcaster>(&node);
   static_tf_broadcaster = std::make_unique<tf2_ros::StaticTransformBroadcaster>(&node);
 
-  model_state_msg_ = std::make_shared<humanoid_model_msgs::msg::ModelState>();
-  model_state_pub_ = node.create_publisher<humanoid_model_msgs::msg::ModelState>(
+  model_state_msg_ = std::make_shared<robot_model_msgs::msg::ModelState>();
+  model_state_pub_ = node.create_publisher<robot_model_msgs::msg::ModelState>(
         "~/model_state",
         10);
 

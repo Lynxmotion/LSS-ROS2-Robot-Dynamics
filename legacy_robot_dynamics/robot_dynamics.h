@@ -20,8 +20,8 @@
 #include <interactive_markers/menu_handler.hpp>
 #include <std_srvs/srv/empty.hpp>
 
-#include "humanoid_model_msgs/msg/compliant_joint_params.hpp"
-#include "humanoid_model_msgs/msg/joint_calibration.hpp"
+#include "robot_model_msgs/msg/compliant_joint_params.hpp"
+#include "robot_model_msgs/msg/joint_calibration.hpp"
 
 #include "rclcpp/client.hpp"
 #include "rclcpp/rate.hpp"
@@ -177,10 +177,10 @@ protected:
     rcl_interfaces::msg::SetParametersResult parameter_set_callback(const std::vector<rclcpp::Parameter> & param);
 
     // extended joint controller publishers
-    humanoid_model_msgs::msg::CompliantJointParams::SharedPtr compliance_params_msg_;
-    humanoid_model_msgs::msg::JointCalibration::SharedPtr calibration_msg_;
-    rclcpp_lifecycle::LifecyclePublisher<humanoid_model_msgs::msg::CompliantJointParams>::SharedPtr compliance_params_pub_;
-    rclcpp_lifecycle::LifecyclePublisher<humanoid_model_msgs::msg::JointCalibration>::SharedPtr calibration_pub_;
+    robot_model_msgs::msg::CompliantJointParams::SharedPtr compliance_params_msg_;
+    robot_model_msgs::msg::JointCalibration::SharedPtr calibration_msg_;
+    rclcpp_lifecycle::LifecyclePublisher<robot_model_msgs::msg::CompliantJointParams>::SharedPtr compliance_params_pub_;
+    rclcpp_lifecycle::LifecyclePublisher<robot_model_msgs::msg::JointCalibration>::SharedPtr calibration_pub_;
 
     void publishCalibration(const robotik::JointCalibration::Data& jd, bool commit = false);
     void calibrateToSelectedPost(srdf::Model::GroupState groupState, visualization_msgs::msg::InteractiveMarkerFeedback::ConstSharedPtr feedback);

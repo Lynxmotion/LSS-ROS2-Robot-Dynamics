@@ -10,7 +10,7 @@ link_directories(${PCL_LIBRARY_DIRS})
 add_dependencies(robot_dynamics robotik-objlib)
 target_link_libraries(robot_dynamics
         robotik-objlib
-        ${humanoid_model_msgs_LIBRARIES}
+        ${robot_model_msgs_LIBRARIES}
         ${PCL_LIBRARIES})
 
 # todo: cleanup these deps
@@ -26,7 +26,7 @@ ament_target_dependencies(robot_dynamics
         "sensor_msgs"
         "std_srvs"
         "nav_msgs"
-        "humanoid_model_msgs"
+        "robot_model_msgs"
         "rclcpp_components"
         "rclcpp_lifecycle"
         "orocos_kdl"

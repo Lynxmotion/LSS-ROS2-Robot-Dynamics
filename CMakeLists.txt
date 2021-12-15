@@ -46,7 +46,7 @@ find_package(rclcpp_components REQUIRED)
 find_package(rclcpp_lifecycle REQUIRED)
 find_package(orocos_kdl REQUIRED)
 find_package(kdl_parser REQUIRED)
-find_package(humanoid_model_msgs REQUIRED)
+find_package(robot_model_msgs REQUIRED)
 
 add_subdirectory(RobotIK)
 

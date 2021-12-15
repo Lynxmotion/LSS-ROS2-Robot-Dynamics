@@ -54,7 +54,7 @@ void SegmentTimeline::checkForCancellation()
             result->result.transform = kf->feedback->progress.transform;
             result->result.segment = kf->expression.segment;
             result->result.duration = (float)duration;
-            result->result.code = humanoid_model_msgs::msg::TrajectoryComplete::SUCCESS;
+            result->result.code = robot_model_msgs::msg::TrajectoryComplete::SUCCESS;
             result->result.value = 0.0;
             kf->goal_handle->canceled(result);
 
@@ -400,7 +400,7 @@ int Trajectory::updateState(State& state, double t) {
                         result->result.transform = tf2::kdlToTransform(segment_state).transform;
                         result->result.segment = ref_frame->expression.segment;
                         result->result.duration = (float)duration;
-                        result->result.code = humanoid_model_msgs::msg::TrajectoryComplete::SUCCESS;
+                        result->result.code = robot_model_msgs::msg::TrajectoryComplete::SUCCESS;
                         result->result.value = 0.0;
                         ref_frame->goal_handle->succeed(result);
 

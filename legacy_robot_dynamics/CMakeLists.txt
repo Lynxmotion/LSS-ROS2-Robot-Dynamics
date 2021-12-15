@@ -12,7 +12,7 @@ link_directories(${PCL_LIBRARY_DIRS})
 add_dependencies(legacy_robot_dynamics robotik-objlib)
 target_link_libraries(legacy_robot_dynamics
         robotik-objlib
-        ${humanoid_model_msgs_LIBRARIES}
+        ${robot_model_msgs_LIBRARIES}
         ${PCL_LIBRARIES})
 ament_target_dependencies(legacy_robot_dynamics
         "rclcpp"
@@ -29,7 +29,7 @@ ament_target_dependencies(legacy_robot_dynamics
         "trajectory_msgs"
         "visualization_msgs"
         "interactive_markers"
-        "humanoid_model_msgs"
+        "robot_model_msgs"
         "rclcpp_components"
         "rclcpp_lifecycle"
         "orocos_kdl"

@@ -183,10 +183,10 @@ Dynamics::on_configure(const rclcpp_lifecycle::State &)
             10);
 
     // extended joint compliance parameters
-    compliance_params_pub_ = this->create_publisher<humanoid_model_msgs::msg::CompliantJointParams>(
+    compliance_params_pub_ = this->create_publisher<robot_model_msgs::msg::CompliantJointParams>(
             "compliance/params",
             10);
-    compliance_params_msg_ = std::make_shared<humanoid_model_msgs::msg::CompliantJointParams>();
+    compliance_params_msg_ = std::make_shared<robot_model_msgs::msg::CompliantJointParams>();
 
     auto frequency = get_parameter("frequency").get_value<float>();
     RCLCPP_INFO(get_logger(), "robot dynamics set to %4.2fhz", frequency);

@@ -14,7 +14,7 @@
 #include <sensor_msgs/msg/joint_state.hpp>
 #include <sensor_msgs/msg/imu.hpp>
 
-#include "humanoid_model_msgs/msg/compliant_joint_params.hpp"
+#include "robot_model_msgs/msg/compliant_joint_params.hpp"
 
 #include <rclcpp/client.hpp>
 #include <rclcpp/rate.hpp>
@@ -115,8 +115,8 @@ protected:
     rcl_interfaces::msg::SetParametersResult parameter_set_callback(const std::vector<rclcpp::Parameter> & param);
 
     // extended joint controller publishers
-    humanoid_model_msgs::msg::CompliantJointParams::SharedPtr compliance_params_msg_;
-    rclcpp_lifecycle::LifecyclePublisher<humanoid_model_msgs::msg::CompliantJointParams>::SharedPtr compliance_params_pub_;
+    robot_model_msgs::msg::CompliantJointParams::SharedPtr compliance_params_msg_;
+    rclcpp_lifecycle::LifecyclePublisher<robot_model_msgs::msg::CompliantJointParams>::SharedPtr compliance_params_pub_;
 
     tf2_ros::Buffer tfBuffer;
     rclcpp::Subscription<tf2_msgs::msg::TFMessage>::SharedPtr subscription_tf_;

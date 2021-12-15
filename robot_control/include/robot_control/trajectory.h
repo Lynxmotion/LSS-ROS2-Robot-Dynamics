@@ -14,8 +14,8 @@
 #include "kinematics.h"
 
 #include <rclcpp_action/rclcpp_action.hpp>
-#include <humanoid_model_msgs/msg/multi_trajectory_progress.hpp>
-#include <humanoid_model_msgs/action/effector_trajectory.hpp>
+#include <robot_model_msgs/msg/multi_trajectory_progress.hpp>
+#include <robot_model_msgs/action/effector_trajectory.hpp>
 
 #include <limits>
 #include <map>
@@ -28,7 +28,7 @@ using Timerange = range_t<double>;
 
 
 namespace trajectory {
-    using EffectorTrajectory = humanoid_model_msgs::action::EffectorTrajectory;
+    using EffectorTrajectory = robot_model_msgs::action::EffectorTrajectory;
     using GoalHandle = rclcpp_action::ServerGoalHandle<EffectorTrajectory>;
 }
 
@@ -189,7 +189,7 @@ public:
     // todo: get rid of this rendered state flag
     trajectory::RenderState state;
 
-    std::map<std::string, humanoid_model_msgs::msg::TrajectoryProgress> progress_reports;
+    std::map<std::string, robot_model_msgs::msg::TrajectoryProgress> progress_reports;
 
     explicit Trajectory(Model::SharedPtr _model)
     : model(_model), kinematics(_model), state(trajectory::Pending) {

@@ -17,8 +17,8 @@
 #include <tf2_ros/transform_broadcaster.h>
 #include <tf2_ros/static_transform_broadcaster.h>
 
-#include <humanoid_model_msgs/msg/model_state.hpp>
-#include <humanoid_model_msgs/msg/multi_segment_trajectory.hpp>
+#include <robot_model_msgs/msg/model_state.hpp>
+#include <robot_model_msgs/msg/multi_segment_trajectory.hpp>
 #include <sensor_msgs/msg/imu.hpp>
 
 
@@ -181,8 +181,8 @@ namespace robotik {
         std::unique_ptr<tf2_ros::StaticTransformBroadcaster> static_tf_broadcaster;
 
         // model state publisher
-        humanoid_model_msgs::msg::ModelState::SharedPtr model_state_msg_;
-        rclcpp_lifecycle::LifecyclePublisher<humanoid_model_msgs::msg::ModelState>::SharedPtr model_state_pub_;
+        robot_model_msgs::msg::ModelState::SharedPtr model_state_msg_;
+        rclcpp_lifecycle::LifecyclePublisher<robot_model_msgs::msg::ModelState>::SharedPtr model_state_pub_;
 
         inline rclcpp::Logger get_logger() { return rclcpp::get_logger("robot_dynamics:model"); }
 

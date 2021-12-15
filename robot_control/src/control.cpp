@@ -25,7 +25,7 @@ Control::Control(std::string control_namespace, std::string preview_namespace)
 void Control::activate(Model::SharedPtr model, rclcpp_lifecycle::LifecycleNode& node) {
     model_ = model;
 
-    trajectory_sub_ = node.create_subscription<humanoid_model_msgs::msg::MultiSegmentTrajectory>(
+    trajectory_sub_ = node.create_subscription<robot_model_msgs::msg::MultiSegmentTrajectory>(
             "~/trajectory",
             10,
             std::bind(&Control::trajectory_callback, this, std::placeholders::_1)
@@ -33,12 +33,12 @@ void Control::activate(Model::SharedPtr model, rclcpp_lifecycle::LifecycleNode& 
 
 #ifndef TRAJECTORY_ACTION_SERVER
     // publisher for trajectory progress
-    progress_pub_ = node.create_publisher<humanoid_model_msgs::msg::MultiTrajectoryProgress>(
+    progress_pub_ = node.create_publisher<robot_model_msgs::msg::MultiTrajectoryProgress>(
             "~/trajectory/progress",
             10);
 
     if(!progress_msg_)
-        progress_msg_ = std::make_shared<humanoid_model_msgs::msg::MultiTrajectoryProgress>();
+        progress_msg_ = std::make_shared<robot_model_msgs::msg::MultiTrajectoryProgress>();
     progress_pub_->on_activate();
 #else
     // Trajectory Action Server
@@ -454,7 +454,7 @@ void Control::publish_progress() {
 }
 
 trajectory::Expression Control::expression_from_msg(
-        humanoid_model_msgs::msg::SegmentTrajectory seg,
+        robot_model_msgs::msg::SegmentTrajectory seg,
         std::string default_reference_frame,
         const rclcpp::Time& now)
 {
@@ -500,7 +500,7 @@ trajectory::Expression Control::expression_from_msg(
     return tf;
 }
 
-void Control::trajectory_callback(humanoid_model_msgs::msg::MultiSegmentTrajectory::SharedPtr msg)
+void Control::trajectory_callback(robot_model_msgs::msg::MultiSegmentTrajectory::SharedPtr msg)
 {
     // set the absolute time
     rclcpp::Time now;
@@ -511,7 +511,7 @@ void Control::trajectory_callback(humanoid_model_msgs::msg::MultiSegmentTrajecto
         now = lastUpdate;
     }
 
-    if(msg->mode == humanoid_model_msgs::msg::MultiSegmentTrajectory::REPLACE_ALL) {
+    if(msg->mode == robot_model_msgs::msg::MultiSegmentTrajectory::REPLACE_ALL) {
         resetTrajectory();
     }
 
@@ -529,7 +529,7 @@ void Control::trajectory_callback(humanoid_model_msgs::msg::MultiSegmentTrajecto
 
         auto expr = expression_from_msg(seg, msg->header.frame_id, now);
 
-        if(msg->mode == humanoid_model_msgs::msg::MultiSegmentTrajectory::REPLACE_SEGMENTS) {
+        if(msg->mode == robot_model_msgs::msg::MultiSegmentTrajectory::REPLACE_SEGMENTS) {
             trajectory->clearSegment(expr.segment);
         }
 
