@@ -222,6 +222,19 @@ public:
     // todo: an arm effector could also be used as a balancing contact point if it is holding onto a wall, chair, floor, etc.
     KDL::Vector CoP;
 
+    ///@brief Indicates how well the feet are supporting the robot's center of mass
+    /// This metric indicates how close (in meters) the robot's center of mass is to the edge of the support polygon
+    /// that encloses all the limbs (feet) that are in contact with the ground. The higher this metric the more
+    /// stable is the robot's pose. The lower the number, the more prone the robot is to stumbling or falling over.
+    double support_margin;
+
+    ///@brief Indicates approximately how many seconds remain before robot instability
+    /// This metric derives an approximate time, in seconds, before instability by calculating the change in
+    /// support_margin and estimating when it will become less than 0. If then change in support_margin is positive
+    /// then this metric would be infinite. Indeed, this metric is only useful for values less than a few seconds
+    /// intended to be used in walking algorithms for timing gait movements.
+    double seconds_of_stability;
+
     ///@brief A measure of how balanced the robot is in this moment
     /// This metric can be used to train walking, standing or other motion sequences and represents how stable the robot
     /// is.

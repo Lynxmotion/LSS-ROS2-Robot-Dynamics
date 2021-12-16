@@ -702,7 +702,6 @@ bool Model::updateContacts(State& state) {
                                                  [&contact](const Contact& c) { return c.limb >= contact.limb; });
 
         auto linkTF = state.findTF(contact.name);
-        contact.tf = linkTF;    // possibly not needed
 
         // save limb endpoint for computing footprint
         if(limb->options_.model == Limb::Leg) {
@@ -713,7 +712,6 @@ bool Model::updateContacts(State& state) {
         // get the joint associated with this limb
         const auto& segment = tree_->getSegment(contact.name);     // todo: make segment lookup and joint-idx more efficient
         assert(segment != tree_->getSegments().end());
-        contact.j_nr = segment->second.parent->second.q_nr; // parents q_nr
         auto joint = segment->second.segment.getJoint();
 
         // transform the support polygon and see if it intersects the ground
@@ -739,7 +737,7 @@ bool Model::updateContacts(State& state) {
 
         // save contact pivot point, divide by N to get mean
         //contact_point = contact_point / contact.pointsInContact.size();
-        contact.wrt_odom = contact.tf.p;
+        contact.wrt_odom = linkTF.p;
         contact.wrt_base = base.Inverse() * contact.wrt_odom;
         contact.wrt_CoM = contact.wrt_odom - state.CoM;
 
@@ -747,6 +745,7 @@ bool Model::updateContacts(State& state) {
         KDL::Vector origin = contact.wrt_CoM;
         contact.distance = std::sqrt( origin.x()*origin.x() + origin.y()*origin.y() );
 
+#if 0 // disabled since it doesnt seem to have a use right now
         // find joint origin by walking up the segment chain until we find a non-fixed joint
         // todo: make resolving joint origin in GRF more efficient (remove lookups and chain walking)
         KDL::Frame jo = linkTF;
@@ -763,6 +762,7 @@ bool Model::updateContacts(State& state) {
         // now set the joint origin in reference to the contact origin
         // todo: this joint origin might be the better place to nail our contact point
         contact.jointOrigin = contact.tf.p - jo.p;
+#endif
 
         // update or add contact
         if(existing_contact_itr == state.contacts.end() || existing_contact_itr->limb != contact.limb ) {
@@ -834,7 +834,7 @@ bool Model::updateContacts(State& state) {
         // update external force wrench with ground reaction force
         // it is at the point of pressure, so we need to change the ref-point to be at the joints
         KDL::Wrench grf(contact.grf, KDL::Vector::Zero());
-        KDL::Wrench j_grf = grf.RefPoint(contact.tf.p); // or should this be contact.jointOrigin?
+        KDL::Wrench j_grf = grf.RefPoint(contact.wrt_odom); // or should this be contact.jointOrigin?
 
         state.externalForces[contact.name] = j_grf;
 
@@ -1027,7 +1027,7 @@ void Model::senseIMU(State& state, sensor_msgs::msg::Imu imu) {
         updateNailedContacts(state);
 
         // use linear/angular velocity somewhere?
-        //   - we definately should use it in the EKF to predict what is happening
+        //   - we definitely should use it in the EKF to predict what is happening
         //   - possibly use gravity on CoM and contact points to determine what angular velocity should be and correlate with EKF
     }
 }
