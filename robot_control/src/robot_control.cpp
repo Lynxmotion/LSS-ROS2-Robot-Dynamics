@@ -99,6 +99,13 @@ void Control::robot_description_callback(std_msgs::msg::String::SharedPtr msg)
 
   current.state = std::make_shared<robotik::State>(*model_);
 
+  // start listening for joint state updates
+  if(!joint_state_listener)
+    joint_state_listener = std::make_shared<robotik::JointStateListener>(
+            *this,
+            get_parameter("joint_state_topic").get_value<std::string>());
+  joint_state_listener->state(current.state);
+
   // we can activate now if we havent already
   if (get_parameter("self_manage").get_value<bool>()) {
     RCLCPP_INFO(get_logger(), "Self-transitioning to ACTIVE");
@@ -181,6 +188,8 @@ Control::on_cleanup(const rclcpp_lifecycle::State &)
     current.control->deactivate();
     model_->clear();
 
+    joint_state_listener.reset();
+
     change_state_client_.reset();
     change_state_request_.reset();
 
@@ -197,6 +206,8 @@ Control::on_shutdown(const rclcpp_lifecycle::State &)
 
     current.control->deactivate();
     model_->clear();
+
+    joint_state_listener.reset();
 
     change_state_client_.reset();
     change_state_request_.reset();
@@ -244,7 +255,8 @@ void Control::updateRobotState()
     auto _now = now();
 
     try {
-        if (model_->updateState(*current.state)) {
+
+        if (model_->compute_TF_CoM(*current.state)) {
             KDL::Frame tf_base, tf_footprint;
 
             if(current.state && current.control->update(*current.state, _now)) {
