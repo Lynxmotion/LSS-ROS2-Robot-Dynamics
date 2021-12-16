@@ -100,15 +100,6 @@ void Dynamics::robot_description_callback(std_msgs::msg::String::SharedPtr msg)
 #endif
   auto numberOfJoints = model_->tree_->getNrOfJoints();
 
-  if(has_parameter(LEG_SUPPORT_DISTANCE_PARAM)) {
-    auto supportDistance = get_parameter(LEG_SUPPORT_DISTANCE_PARAM).as_double();
-    RCLCPP_INFO(get_logger(), LEG_SUPPORT_DISTANCE_PARAM ": overriding URDF value with %4.2f ", supportDistance);
-    for (auto &limb: model_->limbs) {
-      if(limb->options_.model == robotik::Limb::Leg)
-        limb->supportDistance = supportDistance;
-    }
-  }
-
   // resize some messages
   compliance_params_msg_->joints = model_->getJoints();
   compliance_params_msg_->gravity.resize(numberOfJoints);
@@ -418,16 +409,9 @@ void Dynamics::updateRobotState()
 rcl_interfaces::msg::SetParametersResult Dynamics::parameter_set_callback(const std::vector<rclcpp::Parameter> & params) {
     for(auto& p: params) {
         auto name = p.get_name();
-        bool isNumber = p.get_type() == rclcpp::PARAMETER_DOUBLE || p.get_type() == rclcpp::PARAMETER_INTEGER;
+        //bool isNumber = p.get_type() == rclcpp::PARAMETER_DOUBLE || p.get_type() == rclcpp::PARAMETER_INTEGER;
 
-        if(isNumber && name == LEG_SUPPORT_DISTANCE_PARAM) {
-            auto supportDistance = p.as_double();
-            RCLCPP_INFO(get_logger(), LEG_SUPPORT_DISTANCE_PARAM ": updating with %4.2f ", supportDistance);
-            for (auto &limb: model_->limbs) {
-                if (limb->options_.model == robotik::Limb::Leg)
-                    limb->supportDistance = supportDistance;
-            }
-        } else if(name == "joint_names") {
+        if(name == "joint_names") {
             // todo: what do we do with the joints?
             //current.control->set_joints(p.get_value<std::vector<std::string>>());
         } else {
