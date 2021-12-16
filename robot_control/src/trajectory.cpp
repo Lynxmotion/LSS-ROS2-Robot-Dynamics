@@ -114,7 +114,7 @@ public:
     Keyframe* frame;
     State* state;
 
-    KDL::Frame get_relative_frame(const FrameRef& ref, double at_timestamp) override
+    KDL::Frame get_relative_frame(const FrameRef& ref, double /* at_timestamp*/) override
     {
         assert(model != nullptr);
         assert(traj != nullptr);
