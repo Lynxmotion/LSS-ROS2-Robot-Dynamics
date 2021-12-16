@@ -28,11 +28,11 @@ using namespace std::chrono_literals;
 namespace robot_dynamics {
 
 Control::Control()
-        : Control("robot_dynamics") {
+        : Control("robot_control") {
 }
 
 Control::Control(const rclcpp::NodeOptions & options)
-        : Control("robot_dynamics", options) {
+: Control("robot_control", options) {
 }
 
 
@@ -83,7 +83,7 @@ void Control::robot_description_callback(std_msgs::msg::String::SharedPtr msg)
       urdf_base_path + "lss_humanoid.srdf"
   );
 #else
-  std::string urdf_base_path = "/home/guru/src/lss-humanoid/ros2/humanoid/src/lss_hexapod/urdf/";
+  std::string urdf_base_path = "/home/guru/src/lss-ros2/lss/lss_hexapod/urdf/";
   model_->setupURDF(
           msg->data,
           urdf_base_path + "lss_hexapod.srdf"
