@@ -361,6 +361,7 @@ void Model::publishModelState(State& state, rclcpp::Time now, std::string prefix
             supporting[contact.limb] = true;
     }
 
+#if 0       // moved publishing of limb state into Control component
     // limbs
     if(limb_count != model_state_msg_->limbs.size())
         model_state_msg_->limbs.resize(limb_count);
@@ -373,7 +374,10 @@ void Model::publishModelState(State& state, rclcpp::Time now, std::string prefix
         ml.supportive = sl.supportive;
         ml.supporting = supporting[i];
         kdl_frame_to_pose(sl.position, ml.position);
+        // todo: add velocity to model state
+        //ml.velocity = tf2::toMsg(tf2::Stamped(sl.velocity, model_state_msg_->header.stamp, model_state_msg_->header.frame_id));
     }
+#endif
 
     // contacts
     if(contact_count != contact_state.contacts.size())

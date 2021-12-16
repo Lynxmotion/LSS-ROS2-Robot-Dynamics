@@ -53,6 +53,7 @@ void ModelStateListener::model_state_callback(ModelStateMessageType::SharedPtr m
     state_->mass = msg->mass;
     tf2::fromMsg(msg->center_of_mass, state_->CoM);
 
+#if 0       // moved publishing of limb state into Control component
     // update limbs
     if(state_->limbs.size() != model_->limbs.size())
         state_->updateFromModel(*model_);
@@ -65,6 +66,7 @@ void ModelStateListener::model_state_callback(ModelStateMessageType::SharedPtr m
         tf2::fromMsg(msg_limb.supporting, st_limb.position);
         tf2::fromMsg(msg_limb.supporting, st_limb.velocity);
     }
+#endif
 
     // update support
     tf2::fromMsg(msg->support.center_of_pressure, state_->CoP);
