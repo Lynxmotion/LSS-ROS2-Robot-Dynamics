@@ -506,10 +506,6 @@ bool Model::compute_TF_CoM(State& state)
     }
 
     state.CoM = 1.0/state.mass * state.CoM;
-
-    // translate TF, CoM and CoP into our state frame
-
-
     return true;
 }
 
@@ -998,9 +994,6 @@ void Model::senseIMU(State& state, sensor_msgs::msg::Imu imu) {
     if(use_internal_localization) {
         // read in sensed IMU position with respect to IMU identity frame
         auto imu_orientation = to_kdl_rotation(imu.orientation);
-
-        // record IMU in state
-        state.imu = imu_orientation;
 
         // compute frame transform from imu to base
 #if 0

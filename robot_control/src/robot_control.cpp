@@ -259,6 +259,8 @@ void Control::updateRobotState()
         if (model_->compute_TF_CoM(*current.state)) {
             KDL::Frame tf_base, tf_footprint;
 
+            current.state->lastSegmentStateUpdate = _now;
+
             if(current.state && current.control->update(*current.state, _now)) {
                 // send target state to (typically) ros2 controls
                 current.control->publish();

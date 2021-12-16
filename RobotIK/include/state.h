@@ -147,13 +147,10 @@ public:
 
     virtual ~SegmentState();
 
-    StateStamp segmentStamp;
+    rclcpp::Time lastSegmentStateUpdate;
 
     ///@brief computed mass of the robot
     double mass;
-
-    ///@brief The rotation vector of the IMU relative to the robot's base frame
-    KDL::Rotation imu;
 
     ///@brief Robot Center of Mass (aka Center of Gravity)
     KDL::Vector CoM;
@@ -200,7 +197,7 @@ protected:
 public:
     SupportState();
 
-    StateStamp segmentStamp;
+    rclcpp::Time lastSupportStateUpdate;
 
     ///@brief List of (ground) support contacts
     /// These are contacts between our end-effectors and the world that we've either sensed or assumed.

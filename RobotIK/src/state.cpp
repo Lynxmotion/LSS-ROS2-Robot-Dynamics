@@ -140,7 +140,6 @@ SegmentState::SegmentState()
 
 void SegmentState::zero() {
     mass = 0;
-    imu = KDL::Rotation::Identity();
     CoM.Zero();
 
     // clear transforms
