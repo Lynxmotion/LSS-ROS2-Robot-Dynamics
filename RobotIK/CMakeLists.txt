@@ -6,13 +6,15 @@ set(INCLUDE_FILES
         friction.h
         kinematics.h
         listeners/JointStateListener.h
+        listeners/ModelStateListener.h
 )
 set(SOURCE_FILES
         types.cpp model.cpp limb.cpp frame-ref.cpp
         contact.cpp state.cpp
         conversions.cpp friction.cpp
         kinematics.cpp
-        listeners/JointStateListener.cpp)
+        listeners/JointStateListener.cpp
+        listeners/ModelStateListener.cpp)
 
 list(TRANSFORM INCLUDE_FILES PREPEND include/)
 list(TRANSFORM SOURCE_FILES PREPEND src/)
