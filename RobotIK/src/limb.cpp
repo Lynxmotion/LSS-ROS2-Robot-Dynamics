@@ -343,21 +343,15 @@ void Limb::loadSupportPolygon(urdf::ModelInterfaceSharedPtr urdf_model_) {
     supportPolygon = points;
 }
 
-
-
-Limb::Request::Request()
-        : mode(Limp), limbType(Generic), supportive(false)
+Limb::State::State()
+: mode(Limp), limbType(Generic), supportive(false), supporting(false)
 {
 }
 
-Limb::Request::Request(DynamicModelType _limbType, Mode _mode, bool _supportive)
-        : mode(_mode), limbType(_limbType), supportive(_supportive)
+Limb::State::State(DynamicModelType _limbType, Mode _mode, bool _supportive)
+: mode(_mode), limbType(_limbType), supportive(_supportive), supporting(false)
 {
 }
 
-void Limb::Request::seek(KDL::Frame target) {
-    mode = Seeking;
-    targetTF = target;
-}
 
 } // ns::robot

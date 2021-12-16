@@ -125,7 +125,7 @@ public:
 class LimbState {
 public:
     ///@brief Capture the intention of each limb
-    std::vector<Limb::Request> limbs;
+    std::vector<Limb::State> limbs;
 
     LimbState();
 
@@ -138,6 +138,9 @@ public:
     /// This essentially reverts the LimbState to the model-limbs constructor state. Non-supportive limbs such as arms
     /// are set to limp. Legs are set to be supportive but are cleared of an target TF.
     virtual void zero();
+
+    ///@brief update the list of limbs by pulling limb information from the model
+    virtual void updateFromModel(const Model& model);
 };
 
 

@@ -42,14 +42,14 @@ public:
     enum Mode {
         Limp,                   /// end-effector servos should go limp
         Holding,                /// this end-effector should try to hold the given position
-        //BalanceSupport,         /// use this end-effector to remain stable/balanced and support the robot
-        //Stepping,               /// this end-effector should perform a stepping motion to improve balance stability
+        BalanceSupport,         /// use this end-effector to remain stable/balanced and support the robot
+        Stepping,               /// this end-effector should perform a stepping motion to improve balance stability
         Seeking,                /// this end-effector should follow the given targetTF value
         Manipulating            /// user is currently manipulating this limb and has control
     };
 
     ///@brief Indicates how a limb should be used
-    class Request {
+    class State {
     public:
         ///@brief What control mode this end-effector is currently in
         Mode mode;
@@ -63,22 +63,18 @@ public:
         /// and Stepping would be invalid.
         bool supportive;
 
-        ///@brief Where we want the end effector to go
-        /// This frame is relative to the limb base frame (usually the base link). We may not be able to take a direct
-        /// flight, that is up to the trajectory planner and controller.
-        // todo: Trajectory now sets this value, so should balance/etc, so we can have this hold multiple values possibly
-        //       over time and have it mix down based on weights just before updateIK happens.
-        KDL::Frame targetTF;
+        ///@brief true if this limb is currently being used to support the robot
+        bool supporting;
 
-        ///@brief The name of the algorithm controlling this limb at the moment
-        /// todo: the controller, if any, should be an outside ROS node that we communicate with. See Subsumption Architecture?
-        //Controller controller;
+        ///@brief Current position of the end effector
+        /// This frame is relative to the limb base frame (usually the base link).
+        KDL::Frame position;
 
-        Request();
-        Request(DynamicModelType _limbType, Mode _mode, bool _supportive);
+        ///@brief Current velocity of this end effector if it is moving
+        KDL::Twist velocity;
 
-        ///@brief Command the end-effector to go to the given position
-        void seek(KDL::Frame target);
+        State();
+        State(DynamicModelType _limbType, Mode _mode, bool _supportive);
     };
 
     explicit Limb(const Options& options);

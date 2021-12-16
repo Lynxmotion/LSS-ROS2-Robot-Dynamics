@@ -372,7 +372,7 @@ void Model::publishModelState(State& state, rclcpp::Time now, std::string prefix
         ml.type = sl.limbType;
         ml.supportive = sl.supportive;
         ml.supporting = supporting[i];
-        kdl_frame_to_pose(sl.targetTF, ml.position);
+        kdl_frame_to_pose(sl.position, ml.position);
     }
 
     // contacts
@@ -605,10 +605,23 @@ bool Model::updateState(State& state) {
 
 int Model::updateIK(State& state) {
     int updates = 0;
+
+#if 1
+    // todo: Use the new Kinematics object now
+    // new code just applies the limb position to the joint and segment state
+    // old code treated state::Limb as a request and was wonky
+    for(size_t i = 0, _i = std::min(state.limbs.size(), limbs.size()); i < _i; i++) {
+        auto& state_limb = state.limbs[i];
+        auto& model_limb = limbs[i];
+
+        if(model_limb->updateIK(state, state_limb.position) > 0)
+            updates++;
+    }
+#else
     size_t ln = 0;
     for(auto& limb: limbs) {
         // get a limb request if it exists
-        Limb::Request req;
+        Limb::State req;
         if(ln < state.limbs.size())
             req = state.limbs[ln];
         else {
@@ -650,6 +663,7 @@ int Model::updateIK(State& state) {
         }
         ln++;
     }
+#endif
     return updates;
 }
 

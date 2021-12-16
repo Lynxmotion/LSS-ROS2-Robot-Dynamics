@@ -446,22 +446,22 @@ int Trajectory::updateState(State& state, double t) {
             // set limb to seeking and update target
             if(limb_request.mode <= Limb::Seeking) {
                 limb_request.mode = Limb::Seeking;
-                limb_request.targetTF = to_seg->second;
+                limb_request.position = to_seg->second;
                 //std::cout << "seeking " << limb->options_.to_link << ": " << limb_request.targetTF << std::endl;
 
                 // update kinematics
-                kinematics.moveEffector(state, limb->options_.to_link, limb_request.targetTF);
+                kinematics.moveEffector(state, limb->options_.to_link, limb_request.position);
             }
         }
         else if(from_seg != segment_updates.end()) {
             // only activate the limb, but it will track it's currently set target
             if(limb_request.mode <= Limb::Seeking) {
                 limb_request.mode = Limb::Seeking;
-                limb_request.targetTF = state.tf[limb->options_.to_link];
+                limb_request.position = state.tf[limb->options_.to_link];
             }
 
             // update kinematics
-            kinematics.moveEffector(state, limb->options_.to_link, limb_request.targetTF);
+            kinematics.moveEffector(state, limb->options_.to_link, limb_request.position);
 
         } else {
             if(limb_request.mode == Limb::Seeking)

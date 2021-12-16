@@ -172,19 +172,19 @@ LimbState::LimbState()
 }
 
 LimbState::LimbState(const Model& model) {
-    // ensure we have the same number of limbs
-    //if(limbs.size() != model.limbs.size())
-    //    limbs.resize(model.limbs.size());
+    updateFromModel(model);
+}
 
-    // set defaults on limbs
+void LimbState::updateFromModel(const Model& model)
+{
+    // ensure we have the same number of limbs
     limbs.reserve(model.limbs.size());
     for(auto& l: model.limbs) {
         auto isLeg = l->options_.model == robotik::Limb::Leg;
         limbs.emplace_back(
-            l->options_.model,
-            isLeg ? Limb::Holding : Limb::Limp,
-            isLeg
-        );
+                l->options_.model,
+                isLeg ? Limb::Holding : Limb::Limp,
+                isLeg);
     }
 }
 
@@ -192,7 +192,8 @@ void LimbState::zero()
 {
     for(auto& limb: limbs) {
         limb.mode = (limb.limbType == Limb::Leg) ? Limb::Holding : Limb::Limp;
-        limb.targetTF = KDL::Frame();
+        limb.position = KDL::Frame();
+        limb.velocity = KDL::Twist();
     }
 }
 

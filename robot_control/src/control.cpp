@@ -150,7 +150,7 @@ void Control::print_debug(const char* label, const State& state) {
     size_t ln = 0;
     for(auto& limb: model_->limbs) {
         // get a limb request if it exists
-        Limb::Request req;
+        Limb::State req;
         if(ln < state.limbs.size())
             req = state.limbs[ln];
         else {
@@ -164,8 +164,7 @@ void Control::print_debug(const char* label, const State& state) {
             if (/*req.mode != Limb::Limp &&*/ state.findTF(limb->options_.from_link, baseTF) &&
                                               state.findTF(limb->options_.to_link, limbTF)) {
                 if (mode == Limb::Seeking) {
-                    limbTF = req.targetTF;
-                    std::cout << label << ": " << limb->options_.to_link << " = " << limbTF << std::endl;
+                    std::cout << label << ": " << limb->options_.to_link << " = " << req.position << std::endl;
                 }
             }
         }
