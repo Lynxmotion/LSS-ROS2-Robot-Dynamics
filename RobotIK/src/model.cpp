@@ -204,25 +204,7 @@ void Model::on_activate(rclcpp_lifecycle::LifecycleNode& node) {
   model_state_pub_ = node.create_publisher<robot_model_msgs::msg::ModelState>(
         "~/model_state",
         10);
-
-  std::map<Limb::DynamicModelType, std::pair<int, double> > supportDistances;
-    for (auto &c: limbs) {
-        c->on_activate();
-
-        // compute average support distance so we can equalize them
-        if (c->options_.model == Limb::Leg) {
-            auto& support = supportDistances[c->options_.model];
-            support.first++;
-            support.second += c->supportDistance;
-        }
-    }
-
-    // equalize parameters
-    for (auto &support: supportDistances) {
-        if(support.second.first)
-            setSupportDistance(support.second.second / support.second.first, support.first);
-    }
-
+  
     model_state_pub_->on_activate();
 }
 
@@ -411,13 +393,6 @@ void Model::publishModelState(State& state, rclcpp::Time now, std::string prefix
     }
 
     model_state_pub_->publish(*model_state_msg_);
-}
-
-void Model::setSupportDistance(double distance, Limb::DynamicModelType limbType) {
-    for (auto &c: limbs) {
-        if(c->options_.model == limbType)
-            c->supportDistance = distance;
-    }
 }
 
 KDL::Frame Model::getRelativeFrame(const FrameRef& ref, const State& state)

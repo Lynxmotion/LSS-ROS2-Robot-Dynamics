@@ -20,7 +20,7 @@ static double eps_joints = 1E-15;
 
 
 Limb::Limb(const Options& options)
-    : options_(options), friction(Friction::fromTable(Aluminum, Wood)), supportDistance(0.05)
+    : options_(options), friction(Friction::fromTable(Aluminum, Wood))
 {
 }
 
@@ -40,7 +40,6 @@ bool Limb::on_activate() {
 #endif
 
     // get information about the chain
-    const KDL::Joint* attachmentJoint = nullptr;
     KDL::Frame tf;
     for(unsigned int s=0; s<nj; s++) {
         const auto& segment = chain->getSegment(s);
@@ -50,13 +49,6 @@ bool Limb::on_activate() {
         segment_names.push_back(segment.getName());
 
         tf = tf * segment.pose(0);
-
-        if(joint.getType() != KDL::Joint::None && attachmentJoint==nullptr) {
-            // determine the attachment direction
-            direction = tf.p;
-            supportDistance = direction.Normalize();
-            attachmentJoint = &joint;
-        }
 
 #if defined(DEBUG_LIMB)
         auto inertia = segment.getInertia();

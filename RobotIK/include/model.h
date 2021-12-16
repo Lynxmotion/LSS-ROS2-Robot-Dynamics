@@ -130,11 +130,6 @@ namespace robotik {
 
         void publishModelState(State& state, rclcpp::Time now, std::string prefix = std::string());
 
-        ///@brief Set the distance from the robot base for the given limb
-        /// The support distance is the ideal location of the limb (leg) end-effector to provide balance support for
-        /// the robot.
-        void setSupportDistance(double distance, Limb::DynamicModelType limbType = Limb::Leg);
-
         // todo: how can we get a relative state, when we dont have State until we call updateState()?
         //       do we defer offset of trajectory until draw time? (but then we have to track it for each
         //       Expression during updateState() and our KDL trajectories are already rendered and not linked to Exprs.

@@ -111,11 +111,6 @@ public:
     /// normal support stance where legs are supporting equi-distant from the base.
     KDL::Vector direction;
 
-    ///@brief suggested foot support distance from center of robot base
-    /// By default the robot will prefer the foot at this distance from the robot base. It is loaded from the URDF
-    /// model on startup but can be set to any feasible value.
-    double supportDistance;
-
     ///@brief the untranslated support polygon of this end-effector
     /// For legs this is  effectively the supprt rectangle (usually) of the sole of the foot. It is determined by loading
     /// the mesh vertices and performing 'convex hull' analysis on the points to find the enclosing polygon. It prefers
