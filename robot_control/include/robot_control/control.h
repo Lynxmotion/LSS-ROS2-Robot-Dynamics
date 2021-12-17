@@ -24,6 +24,8 @@
 
 namespace robotik {
 
+#define PUBLISH_STATIC_TF_EVERY   5.0    // seconds
+
 class Control {
 public:
     using SharedPtr = std::shared_ptr<Control>;
@@ -70,7 +72,13 @@ public:
     ///@returns the expected state at this moment in time.
     bool update(const State& current, rclcpp::Time _now);
 
-    bool publish();
+    bool publish_control();
+
+    void publish_efforts();
+
+    void publish_trajectory_preview(const rclcpp::Time& now, std::string prefix = "preview");
+
+    void publish_target_preview(const rclcpp::Time& now, std::string prefix = "target");
 
     void resetTarget(const State& current);
     void resetTrajectory();
@@ -106,6 +114,8 @@ protected:
     rclcpp::Time lastUpdate;
     State::SharedPtr trajectoryState;
 
+    rclcpp::Time last_static_publish_target, last_static_publish_trajectory;
+
     trajectory::Expression expression_from_msg(
             robot_model_msgs::msg::SegmentTrajectory msg,
             std::string default_reference_frame,
@@ -123,7 +133,6 @@ protected:
     std_msgs::msg::Float64MultiArray::SharedPtr joint_efforts_msg_;
     rclcpp_lifecycle::LifecyclePublisher<std_msgs::msg::Float64MultiArray>::SharedPtr joint_efforts_pub_;
     bool efforts_updated;
-    void publish_efforts();
 
 #ifndef TRAJECTORY_ACTION_SERVER
     robot_model_msgs::msg::MultiTrajectoryProgress::SharedPtr progress_msg_;
@@ -153,6 +162,14 @@ protected:
     rclcpp::Client<lifecycle_msgs::srv::ChangeState>::SharedFuture jointctrl_change_state_future_;
 
     void print_debug(const char* label, const State& state);
+
+    ///@brief Publish a state object's TF and ModelState for previewing
+    /// Used to publish either target state or trajectory preview state.
+    void publish_preview_state(
+            const State& state,
+            const std::string& prefix,
+            const rclcpp::Time& now,
+            rclcpp::Time& last_static_publish);
 
     inline rclcpp::Logger get_logger() { return rclcpp::get_logger("robot_dynamics:control"); }
 };

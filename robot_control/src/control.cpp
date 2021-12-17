@@ -321,16 +321,6 @@ bool Control::update(const State& current, rclcpp::Time _now) {
 #endif
                 }
 #endif
-                // if we are executing the trajectory, then the target state will be visualized later
-                if(trajectoryPreview) {
-                    // publish preview state to TF
-                    model_->publishTransforms(*trajstate, _now, "preview");
-                    if(preview_publish_static_tf)
-                        model_->publishFixedTransforms(_now, "preview");
-
-                    // publish model state for trajectory preview
-                    model_->publishModelState(*trajstate, _now, "preview");
-                }
             }
         }
 abort_trajectory:
@@ -428,6 +418,36 @@ void Control::publish_efforts() {
         efforts_updated = false;
     }
 }
+
+void Control::publish_trajectory_preview(const rclcpp::Time& now, std::string prefix)
+{
+    // if we are executing the trajectory, then the target state will be visualized later
+    if(!executeTrajectory && trajectoryState)
+        return publish_preview_state(*trajectoryState, prefix, now, last_static_publish_trajectory);
+}
+
+void Control::publish_target_preview(const rclcpp::Time& now, std::string prefix)
+{
+    if(target)
+        return publish_preview_state(*target, prefix, now, last_static_publish_target);
+}
+
+void Control::publish_preview_state(const State& state, const std::string& prefix, const rclcpp::Time& now, rclcpp::Time& last_static_publish)
+{
+    // publish preview state to TF
+    model_->publishTransforms(state, now, prefix);
+
+    // publish static transform every few seconds
+    if(last_static_publish.get_clock_type() != RCL_ROS_TIME
+    || (now - last_static_publish).seconds() > PUBLISH_STATIC_TF_EVERY) {
+        model_->publishFixedTransforms(now, prefix);
+        last_static_publish = now;
+    }
+
+    // publish model state for trajectory preview
+    model_->publishModelState(state, now, prefix);
+}
+
 
 trajectory::Expression Control::expression_from_msg(
         robot_model_msgs::msg::SegmentTrajectory seg,

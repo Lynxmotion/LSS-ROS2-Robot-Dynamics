@@ -471,6 +471,10 @@ void Control::publish() try {
 
         publish_control_state(*current.state, *current.control->getTargetState(), _now);
         lastControlUpdate = _now;
+
+        // todo: setup a timer to publish preview less often as control
+        current.control->publish_target_preview(_now);
+        current.control->publish_trajectory_preview(_now);
     }
 
 } catch (std::exception & e) {
