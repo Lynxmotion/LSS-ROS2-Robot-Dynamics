@@ -277,6 +277,14 @@ void Model::publishFixedTransforms(rclcpp::Time now, std::string prefix)
         prefix += '/';
     }
 
+    if(!prefix.empty()) {
+        // send a world transform between the root tf namespace and ours
+        geometry_msgs::msg::TransformStamped tf_transform;
+        tf_transform.header.frame_id = "world";
+        tf_transform.child_frame_id = prefix + tf_transform.header.frame_id;
+        tf_transforms.push_back(tf_transform);
+    }
+
     // loop over all fixed segments
     for (const std::pair<const std::string, SegmentPair> & seg : segments_fixed_) {
         geometry_msgs::msg::TransformStamped tf_transform = tf2::kdlToTransform(seg.second.segment.pose(0));
