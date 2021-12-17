@@ -18,15 +18,13 @@
 #include "rclcpp_lifecycle/lifecycle_node.hpp"
 #include "rclcpp_lifecycle/lifecycle_publisher.hpp"
 
-#include "../../RobotIK/include/types.h"
+#include <robotik.h>
 #include <robot_control/control.h>
 
 #include <tf2_ros/buffer.h>
 
 #include <urdf_model/model.h>
 #include <urdf_parser/urdf_parser.h>
-
-#include <robotik.h>
 
 #include <memory>
 #include <string>

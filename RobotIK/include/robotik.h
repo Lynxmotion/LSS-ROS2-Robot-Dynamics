@@ -5,9 +5,10 @@
 #ifndef LSS_HUMANOID_ROBOTIK_H
 #define LSS_HUMANOID_ROBOTIK_H
 
-#include <model.h>
-#include <state.h>
-#include <limb.h>
-#include <exception.h>
+#include "types.h"
+#include "model.h"
+#include "state.h"
+#include "limb.h"
+#include "exception.h"
 
 #endif //LSS_HUMANOID_ROBOTIK_H
