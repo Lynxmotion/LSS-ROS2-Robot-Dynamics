@@ -355,7 +355,7 @@ abort_trajectory:
     return false;
 }
 
-bool Control::publish() {
+bool Control::publish_control() {
     // execute the trajectory
     if(executeTrajectory && target) {
         auto& trajstate = *target;

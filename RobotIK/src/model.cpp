@@ -358,38 +358,16 @@ void Model::publishModelState(const State& state, rclcpp::Time now, std::string 
     // contact state
     //
     auto& contact_state = model_state_msg_->support;
-    auto limb_count = state.limbs.size();
     auto contact_count = state.contacts.size();
 
     kdl_vector_to_vector(state.CoP, contact_state.center_of_pressure);
-    
+
+    // todo: compute the support margin
+    contact_state.margin = 0.2;
+    contact_state.seconds_of_stability = 1.5;
+
     // support polygon points
     kdl_vector_to_vector(state.supportPolygon, contact_state.support_polygon);
-
-    // figure out what limbs are supporting
-    std::vector<bool> supporting(limbs.size(), false);
-    for(const auto& contact : state.contacts) {
-        if(contact.limb < limb_count)
-            supporting[contact.limb] = true;
-    }
-
-#if 0       // moved publishing of limb state into Control component
-    // limbs
-    if(limb_count != model_state_msg_->limbs.size())
-        model_state_msg_->limbs.resize(limb_count);
-    for(size_t i=0; i < limb_count; i++) {
-        auto& ml = model_state_msg_->limbs[i];
-        auto& sl = state.limbs[i];
-        ml.name = limbs[i]->options_.to_link;
-        ml.mode = sl.mode;
-        ml.type = sl.limbType;
-        ml.supportive = sl.supportive;
-        ml.supporting = supporting[i];
-        kdl_frame_to_pose(sl.position, ml.position);
-        // todo: add velocity to model state
-        //ml.velocity = tf2::toMsg(tf2::Stamped(sl.velocity, model_state_msg_->header.stamp, model_state_msg_->header.frame_id));
-    }
-#endif
 
     // contacts
     if(contact_count != contact_state.contacts.size())
@@ -522,6 +500,10 @@ bool Model::compute_TF_CoM(State& state)
     }
 
     state.CoM = 1.0/state.mass * state.CoM;
+
+    // since the segment data is based purely off the JointState we can use that
+    // timestamp to indicate when the segments were updated as well
+    state.lastSegmentStateUpdate = state.lastJointStateUpdate;
     return true;
 }
 

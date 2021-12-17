@@ -111,6 +111,15 @@ void Control::robot_description_callback(std_msgs::msg::String::SharedPtr msg)
             get_parameter(JOINT_STATE_TOPIC_PARAMETER).get_value<std::string>());
   joint_state_listener->state(current.state);
 
+  if(!model_state_listener)
+      model_state_listener = std::make_shared<robotik::ModelStateListener>(
+              *this,
+              get_parameter(MODEL_STATE_TOPIC_PARAMETER).get_value<std::string>(),
+              "odom");
+  model_state_listener->model(model_);
+  model_state_listener->state(current.state);
+
+
   // we can activate now if we havent already
   if (get_parameter("self_manage").get_value<bool>()) {
     RCLCPP_INFO(get_logger(), "Self-transitioning to ACTIVE");
@@ -166,6 +175,12 @@ Control::on_configure(const rclcpp_lifecycle::State &)
         std::move(static_cb)
     );
 
+    // extended joint compliance parameters
+    control_state_pub_ = this->create_publisher<robot_model_msgs::msg::ControlState>(
+            "robot_dynamics/control_state",
+            10);
+    control_state_msg_ = std::make_shared<robot_model_msgs::msg::ControlState>();
+
     auto frequency = get_parameter("frequency").get_value<float>();
     RCLCPP_INFO(get_logger(), "robot dynamics set to %4.2fhz", frequency);
     update_timer_ = create_wall_timer(
@@ -194,6 +209,10 @@ Control::on_cleanup(const rclcpp_lifecycle::State &)
     model_->clear();
 
     joint_state_listener.reset();
+    model_state_listener.reset();
+
+    control_state_pub_.reset();
+    control_state_msg_.reset();
 
     change_state_client_.reset();
     change_state_request_.reset();
@@ -213,6 +232,10 @@ Control::on_shutdown(const rclcpp_lifecycle::State &)
     model_->clear();
 
     joint_state_listener.reset();
+    model_state_listener.reset();
+
+    control_state_pub_.reset();
+    control_state_msg_.reset();
 
     change_state_client_.reset();
     change_state_request_.reset();
@@ -227,6 +250,7 @@ Control::on_activate(const rclcpp_lifecycle::State &)
     CallbackReturn rv = CallbackReturn::SUCCESS;
 
     model_->on_activate(*this);
+    control_state_pub_->on_activate();
 
     return rv;
 }
@@ -237,6 +261,7 @@ Control::on_deactivate(const rclcpp_lifecycle::State &)
     RCLCPP_INFO(get_logger(), "deactivating robot dynamics");
 
     model_->on_deactivate();
+    control_state_pub_->on_deactivate();
 
     return rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn::SUCCESS;
 }
@@ -268,12 +293,105 @@ void Control::updateRobotState()
 
             if(current.state && current.control->update(*current.state, _now)) {
                 // send target state to (typically) ros2 controls
-                current.control->publish();
+                current.control->publish_control();
             }
         }
     } catch(robotik::Exception& e) {
         RCLCPP_INFO(get_logger(), e.what());
     }
+}
+
+void set_effector_msg(robot_model_msgs::msg::EffectorState& effector, const KDL::Frame& current_pose, const KDL::Frame& target_pose) {
+    kdl_frame_to_pose(current_pose, effector.pose);
+    kdl_frame_to_pose(target_pose, effector.target);
+    KDL::Vector dv = target_pose.p - current_pose.p;
+    effector.error = std::sqrt(dv.x()*dv.x() + dv.y()*dv.y() + dv.z() * dv.z());
+    effector.velocity.linear = geometry_msgs::msg::Vector3();
+    effector.velocity.angular = geometry_msgs::msg::Vector3();
+}
+
+// when there is no target active
+void set_effector_msg(robot_model_msgs::msg::EffectorState& effector, const KDL::Frame& current) {
+    kdl_frame_to_pose(current, effector.pose);
+    effector.velocity.linear = geometry_msgs::msg::Vector3();
+    effector.velocity.angular = geometry_msgs::msg::Vector3();
+    effector.target = effector.pose;
+    effector.error = 0;
+}
+
+void Control::publish_control_state(const robotik::State& current, const robotik::State& target, rclcpp::Time now, std::string prefix)
+{
+    bool controlling = true;
+
+    if(!control_state_msg_ || !control_state_pub_->is_activated())
+        return;
+
+    if(!prefix.empty() && prefix.back() != '/') {
+        prefix += '/';
+    }
+
+    control_state_msg_->header.frame_id = prefix + current.relativeFrameName;
+    control_state_msg_->header.stamp = now;
+
+    KDL::Frame current_base_tf;
+    if(!current.findTF(model_->base_link, current_base_tf)) {
+        RCLCPP_WARN_ONCE(get_logger(), "failed to publish control state because state contains no base_link");
+        return;
+    }
+
+    KDL::Frame target_base_tf;
+    if(target.findTF(model_->base_link, target_base_tf)) {
+        controlling = false;
+        set_effector_msg(control_state_msg_->base, current_base_tf, target_base_tf);
+    } else
+        set_effector_msg(control_state_msg_->base, current_base_tf);
+
+
+    auto limb_count = (short)current.limbs.size();
+
+    // figure out what limbs are supporting
+    std::vector<bool> supporting(limb_count, false);
+    for(const auto& contact : current.contacts) {
+        if(contact.limb > 0 && contact.limb < limb_count)
+            supporting[contact.limb] = true;
+    }
+
+    // limbs
+    if(limb_count != (short)control_state_msg_->limbs.size())
+        control_state_msg_->limbs.resize(limb_count);
+    for(short i=0; i < limb_count; i++) {
+        auto& ml = control_state_msg_->limbs[i];
+        auto& sl = current.limbs[i];
+        ml.name = model_->limbs[i]->options_.to_link;
+        ml.mode = sl.mode;
+        ml.type = sl.limbType;
+        ml.supportive = sl.supportive;
+        ml.supporting = supporting[i];
+
+        kdl_frame_to_pose(sl.position, ml.effector.pose);
+        // todo: add velocity to model state
+        //ml.velocity = tf2::toMsg(tf2::Stamped(sl.velocity, model_state_msg_->header.stamp, model_state_msg_->header.frame_id));
+
+        KDL::Frame current_limb_tf;
+        if(current.findTF(ml.name, current_limb_tf)) {
+            // make limb_tf relative to robot body
+            current_limb_tf = current_base_tf.Inverse() * current_limb_tf;
+
+            kdl_frame_to_pose(current_limb_tf, ml.effector.target);
+        } else {
+            ml.effector.target = ml.effector.pose;
+            ml.effector.error = 0;
+        }
+
+        KDL::Frame target_limb_tf;
+        if(controlling && target.findTF(ml.name, target_limb_tf)) {
+            target_limb_tf = target_base_tf.Inverse() * target_limb_tf;
+            set_effector_msg(ml.effector, current_limb_tf, target_limb_tf);
+        } else
+            set_effector_msg(ml.effector, current_limb_tf);
+    }
+
+    control_state_pub_->publish(*control_state_msg_);
 }
 
 rcl_interfaces::msg::SetParametersResult Control::parameter_set_callback(const std::vector<rclcpp::Parameter> & params) {
@@ -330,25 +448,29 @@ void Control::tf_callback(tf2_msgs::msg::TFMessage::SharedPtr msg, bool /* is_st
     }
 }
 
-const double standHeightMin = 0.153;
-const double standHeightMax = 0.271;
-
 void Control::publish() try {
     //RCLCPP_DEBUG(get_logger(), "Querying for current IMU data");
-    rclcpp::Time stamp = now();
+    rclcpp::Time _now = now();
 
     // ensure we have state to publish
     if(!current.state)
         return;
 
-    if(model_->tree_ && !model_->limbs.empty() && lastJointStateUpdate.get_clock_type()==RCL_ROS_TIME) {
-        auto since = stamp - lastJointStateUpdate;
-        if(since.seconds() > 1.0) {
+    if(model_->tree_ && !model_->limbs.empty()
+                && current.state->lastJointStateUpdate.get_clock_type()==RCL_ROS_TIME
+                && current.state->lastSupportStateUpdate.get_clock_type()==RCL_ROS_TIME) {
+        auto sinceJoints = _now - current.state->lastJointStateUpdate;
+        auto sinceModel = _now - current.state->lastSupportStateUpdate;
+
+        if(sinceJoints.seconds() > 1.0 || sinceModel.seconds() > 1.0) {
             // todo: we are no longer getting joint updates, we shouldnt control either
             return;
         }
 
         updateRobotState();
+
+        publish_control_state(*current.state, *current.control->getTargetState(), _now);
+        lastControlUpdate = _now;
     }
 
 } catch (std::exception & e) {
