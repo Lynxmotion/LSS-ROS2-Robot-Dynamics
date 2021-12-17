@@ -206,6 +206,10 @@ void Model::on_activate(rclcpp_lifecycle::LifecycleNode& node) {
         10);
   
     model_state_pub_->on_activate();
+
+    for(auto& c: limbs) {
+        c->on_activate();
+    }
 }
 
 void Model::on_deactivate() {
