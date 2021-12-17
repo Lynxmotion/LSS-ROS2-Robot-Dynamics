@@ -6,6 +6,7 @@
 
 #include <utility>
 #include "types.h"
+#include "conversions.h"
 
 namespace robotik {
 
@@ -51,7 +52,7 @@ void ModelStateListener::model_state_callback(ModelStateMessageType::SharedPtr m
         state_ = std::make_shared<State>(*model_);
 
     state_->mass = msg->mass;
-    tf2::fromMsg(msg->center_of_mass, state_->CoM);
+    vector_to_kdl_vector(msg->center_of_mass, state_->CoM);
 
 #if 0       // moved publishing of limb state into Control component
     // update limbs
@@ -69,8 +70,8 @@ void ModelStateListener::model_state_callback(ModelStateMessageType::SharedPtr m
 #endif
 
     // update support
-    tf2::fromMsg(msg->support.center_of_pressure, state_->CoP);
-    tf2::fromMsg(msg->support.support_polygon, state_->supportPolygon);
+    vector_to_kdl_vector(msg->support.center_of_pressure, state_->CoP);
+    vector_to_kdl_vector(msg->support.support_polygon, state_->supportPolygon);
     state_->inSupport = state_->pointInSupport(state_->CoM);
     state_->support_margin = msg->support.margin;
     state_->seconds_of_stability = msg->support.seconds_of_stability;
@@ -83,13 +84,13 @@ void ModelStateListener::model_state_callback(ModelStateMessageType::SharedPtr m
         //st_c.name = model_limb->options_.to_link;
         st_c.name = msg_limb.segment;
 
-        tf2::fromMsg(msg_limb.grf, st_c.grf);
+        vector_to_kdl_vector(msg_limb.grf, st_c.grf);
 
-        tf2::fromMsg(msg_limb.wrt_center_of_mass, st_c.wrt_CoM);
-        tf2::fromMsg(msg_limb.wrt_center_of_mass, st_c.wrt_base);
-        tf2::fromMsg(msg_limb.wrt_center_of_mass, st_c.wrt_odom);
+        vector_to_kdl_vector(msg_limb.wrt_center_of_mass, st_c.wrt_CoM);
+        vector_to_kdl_vector(msg_limb.wrt_center_of_mass, st_c.wrt_base);
+        vector_to_kdl_vector(msg_limb.wrt_center_of_mass, st_c.wrt_odom);
 
-        tf2::fromMsg(msg_limb.polygon, st_c.pointsInContact);
+        vector_to_kdl_vector(msg_limb.polygon, st_c.pointsInContact);
 
         st_c.staticFriction = msg_limb.static_friction;
         st_c.slippage = msg_limb.slippage;
