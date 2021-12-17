@@ -58,15 +58,6 @@ public:
     void activate(Model::SharedPtr model, rclcpp_lifecycle::LifecycleNode& node);
     void deactivate();
 
-
-#if 0
-    ///@brief Computes a new trajectory to move the robot to the standing height
-    void setBaseHeight(double pos);
-    void setBaseHeight(double pos, const State& current, rclcpp::Time _stamp);
-    inline double getBaseHeight() const { return model_->baseHeight; }
-#endif
-
-
     ///@brief Update any required trajectories based on current state
     /// Apply trajectories to state
     ///@returns the expected state at this moment in time.

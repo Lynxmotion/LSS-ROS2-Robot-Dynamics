@@ -11,7 +11,7 @@
 ///@brief Log information to console about limb and limb IK errors
 /// If defined, will log information about each limb Orokos Chain, and will output IK errors when they occur. If defined
 /// as 2 or greater will output more joint detail for errors.
-#define DEBUG_LIMB 1
+//#define DEBUG_LIMB 1
 
 namespace robotik {
 
