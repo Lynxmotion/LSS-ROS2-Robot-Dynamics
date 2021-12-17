@@ -301,7 +301,7 @@ void Model::publishFixedTransforms(rclcpp::Time now, std::string prefix)
     }
 }
 
-void Model::publishModelState(State& state, rclcpp::Time now, std::string prefix) {
+void Model::publishModelState(const State& state, rclcpp::Time now, std::string prefix) {
     if(!model_state_msg_ || !model_state_pub_->is_activated())
         return;
 

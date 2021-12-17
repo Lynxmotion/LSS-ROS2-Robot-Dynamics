@@ -128,7 +128,7 @@ namespace robotik {
 
         void publishFixedTransforms(rclcpp::Time now, std::string prefix = "");
 
-        void publishModelState(State& state, rclcpp::Time now, std::string prefix = std::string());
+        void publishModelState(const State& state, rclcpp::Time now, std::string prefix = std::string());
 
         // todo: how can we get a relative state, when we dont have State until we call updateState()?
         //       do we defer offset of trajectory until draw time? (but then we have to track it for each
