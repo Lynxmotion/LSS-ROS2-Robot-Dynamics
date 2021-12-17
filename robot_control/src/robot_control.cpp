@@ -27,6 +27,11 @@ using namespace std::chrono_literals;
 
 namespace robot_dynamics {
 
+    const char* TF_TOPIC_PARAMETER = "tf_topic";
+    const char* JOINT_STATE_TOPIC_PARAMETER = "joint_state_topic";
+    const char* MODEL_STATE_TOPIC_PARAMETER = "model_state_topic";
+
+
 Control::Control()
         : Control("robot_control") {
 }
@@ -51,9 +56,9 @@ Control::Control(
     declare_parameter("joint_controller", rclcpp::ParameterValue("lss_joint_controller"));
     declare_parameter("effort_controller", rclcpp::ParameterValue("/effort_controller/commands"));
 
-    declare_parameter("joint_state_topic", rclcpp::ParameterValue("joint_states"));
-    declare_parameter("model_state_topic", rclcpp::ParameterValue("robot_dynamics/model_state"));
-    declare_parameter("tf_topic", rclcpp::ParameterValue("tf"));
+    declare_parameter(JOINT_STATE_TOPIC_PARAMETER, rclcpp::ParameterValue("joint_states"));
+    declare_parameter(MODEL_STATE_TOPIC_PARAMETER, rclcpp::ParameterValue("robot_dynamics/model_state"));
+    declare_parameter(TF_TOPIC_PARAMETER, rclcpp::ParameterValue("tf"));
 
     if (get_parameter("self_manage").get_value<bool>()) {
         change_state_request_ = std::make_shared<lifecycle_msgs::srv::ChangeState::Request>();
@@ -103,7 +108,7 @@ void Control::robot_description_callback(std_msgs::msg::String::SharedPtr msg)
   if(!joint_state_listener)
     joint_state_listener = std::make_shared<robotik::JointStateListener>(
             *this,
-            get_parameter("joint_state_topic").get_value<std::string>());
+            get_parameter(JOINT_STATE_TOPIC_PARAMETER).get_value<std::string>());
   joint_state_listener->state(current.state);
 
   // we can activate now if we havent already

@@ -12,6 +12,8 @@
 
 namespace robotik {
 
+extern const std::string DEFAULT_COMPONENT_TOPIC_PREFIX;
+
 using TwoCC = uint16_t;
 using FourCC = uint32_t;
 

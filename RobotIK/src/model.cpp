@@ -197,12 +197,12 @@ void Model::addChildren(const KDL::SegmentMap::const_iterator& segment)
 }
 
 void Model::on_activate(rclcpp_lifecycle::LifecycleNode& node) {
-  tf_broadcaster = std::make_unique<tf2_ros::TransformBroadcaster>(&node);
-  static_tf_broadcaster = std::make_unique<tf2_ros::StaticTransformBroadcaster>(&node);
+    tf_broadcaster = std::make_unique<tf2_ros::TransformBroadcaster>(&node);
+    static_tf_broadcaster = std::make_unique<tf2_ros::StaticTransformBroadcaster>(&node);
 
-  model_state_msg_ = std::make_shared<robot_model_msgs::msg::ModelState>();
-  model_state_pub_ = node.create_publisher<robot_model_msgs::msg::ModelState>(
-        "~/model_state",
+    model_state_msg_ = std::make_shared<robot_model_msgs::msg::ModelState>();
+    model_state_pub_ = node.create_publisher<robot_model_msgs::msg::ModelState>(
+        DEFAULT_COMPONENT_TOPIC_PREFIX + "/model_state",
         10);
   
     model_state_pub_->on_activate();

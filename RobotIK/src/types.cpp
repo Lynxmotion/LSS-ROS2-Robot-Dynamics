@@ -6,6 +6,8 @@
 
 namespace robotik {
 
+const std::string DEFAULT_COMPONENT_TOPIC_PREFIX = "robot_dynamics";
+
 std::size_t ElementKey::hash() const {
     std::size_t h1 = std::hash<uint16_t>{}(symbol);
     std::size_t h2 = std::hash<std::string>{}(name);

@@ -38,13 +38,15 @@ public:
 
     Model::SharedPtr model_;
     State::SharedPtr target;
+
+    std::string publisher_prefix_;
     std::string control_namespace_;
     std::string preview_namespace_;
 
     ///@brief the composite trajectory of active end-effectors
     Trajectory::SharedPtr trajectory;
 
-    Control(
+    Control(std::string publisher_prefix = DEFAULT_COMPONENT_TOPIC_PREFIX,
             std::string control_namespace = "target",
             std::string preview_namespace = "preview");
 

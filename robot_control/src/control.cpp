@@ -15,8 +15,8 @@
 
 namespace robotik {
 
-Control::Control(std::string control_namespace, std::string preview_namespace)
-: active(false), override(false), loopPreviewDelay(4.0), loopPreview(true),
+Control::Control(std::string publisher_prefix, std::string control_namespace, std::string preview_namespace)
+: active(false), override(false), loopPreviewDelay(4.0), loopPreview(true), publisher_prefix_(publisher_prefix),
   control_namespace_(std::move(control_namespace)), preview_namespace_(std::move(preview_namespace)),
   efforts_updated(false)
 {}
@@ -26,7 +26,7 @@ void Control::activate(Model::SharedPtr model, rclcpp_lifecycle::LifecycleNode& 
     model_ = model;
 
     trajectory_sub_ = node.create_subscription<robot_model_msgs::msg::MultiSegmentTrajectory>(
-            "~/trajectory",
+            publisher_prefix_ + "/trajectory",
             10,
             std::bind(&Control::trajectory_callback, this, std::placeholders::_1)
     );
@@ -199,7 +199,6 @@ bool Control::update(const State& current, rclcpp::Time _now) {
         KDL::Frame odom_tf;
         if(current.findTF(model_->odom_link, odom_tf))
             target->tf[model_->odom_link] = odom_tf;
-
 
 #if 0
         // todo: track changes in state's odom => base_link frame, and apply those changes to
