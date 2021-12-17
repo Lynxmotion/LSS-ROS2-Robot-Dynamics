@@ -1133,7 +1133,7 @@ void Model::balance(State& state, const SupportState& contacts) {
     // Compute foot/stance positions in TF, Model will update IK and inner joint TF afterward
     double minZ = base.p.z();
     auto limbsInContactItr = contacts.contacts.begin();
-    for (size_t l=0, _l=limbs.size(); l<_l; l++) {
+    for (short l=0, _l=(short)limbs.size(); l<_l; l++) {
         auto &limb = limbs[l];
         const Contact* contact = nullptr;
 
