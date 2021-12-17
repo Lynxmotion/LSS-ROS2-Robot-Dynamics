@@ -95,6 +95,31 @@ void pose_to_kdl_frame(const geometry_msgs::msg::Pose& pose, KDL::Frame& frame) 
     frame.M = KDL::Rotation::Quaternion(pose.orientation.x, pose.orientation.y, pose.orientation.z, pose.orientation.w);
 }
 
+namespace tf {
+    void fromMsg(const geometry_msgs::msg::Wrench& in, KDL::Wrench& out)
+    {
+        vector_to_kdl_vector(in.force, out.force);
+        vector_to_kdl_vector(in.torque, out.torque);
+    }
+
+    void toMsg(const KDL::Wrench& in, geometry_msgs::msg::Wrench& out)
+    {
+        kdl_vector_to_vector(in.force, out.force);
+        kdl_vector_to_vector(in.torque, out.torque);
+    }
+
+    void fromMsg(const geometry_msgs::msg::Twist& in, KDL::Twist& out)
+    {
+        vector_to_kdl_vector(in.angular, out.rot);
+        vector_to_kdl_vector(in.linear, out.vel);
+    }
+
+    void toMsg(const KDL::Twist& in, geometry_msgs::msg::Twist& out)
+    {
+        kdl_vector_to_vector(in.rot, out.angular);
+        kdl_vector_to_vector(in.vel, out.linear);
+    }
+}
 
 std::ostream& operator<<(std::ostream& sout, const KDL::JntArray& arr) {
     sout << "JntArray[" << arr.columns() << 'x' << arr.rows() << ']' << std::endl;

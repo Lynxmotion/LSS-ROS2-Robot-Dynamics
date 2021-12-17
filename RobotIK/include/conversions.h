@@ -34,6 +34,16 @@ void vector_to_kdl_vector(const std::vector<geometry_msgs::msg::Vector3>& src, s
 void quat_to_kdl_rotation(const geometry_msgs::msg::Quaternion& src, KDL::Rotation& dest);
 void quat_to_kdl_rotation(const std::vector<geometry_msgs::msg::Quaternion>& src, std::vector<KDL::Rotation>& dest);
 
+namespace tf2 {
+    // KDL wrench
+    void fromMsg(const geometry_msgs::msg::Wrench& in, KDL::Wrench& out);
+    void toMsg(const KDL::Wrench& in, geometry_msgs::msg::Wrench& out);
+
+    // KDL twist
+    void fromMsg(const geometry_msgs::msg::Twist& in, KDL::Twist& out);
+    void toMsg(const KDL::Twist& in, geometry_msgs::msg::Twist& out);
+}
+
 inline KDL::Rotation to_kdl_rotation(const geometry_msgs::msg::Quaternion& src)
 {
     KDL::Rotation dest;
