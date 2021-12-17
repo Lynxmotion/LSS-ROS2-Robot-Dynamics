@@ -297,34 +297,36 @@ rcl_interfaces::msg::SetParametersResult Control::parameter_set_callback(const s
 
 void Control::tf_callback(tf2_msgs::msg::TFMessage::SharedPtr msg, bool /* is_static */)
 {
+    int updates = 0;
+    builtin_interfaces::msg::Time now;
     if(model_ && current.state) {
         auto segments = model_->tree_->getSegments();
 
         for (auto i = 0u; i < msg->transforms.size(); i++) {
-            auto frame_id = msg->transforms[i].child_frame_id;
+            auto& tfx = msg->transforms[i];
+            auto frame_id = tfx.child_frame_id;
+            now = tfx.header.stamp;
             if(!frame_id.empty() && frame_id[0]=='/')
                 frame_id = frame_id.substr(1);
 
-            if(frame_id.length() > 3 && frame_id.compare(0, 3, "se/")==0) {
-                // todo: this should be transformed to odom-relative (but it already is by default)
-                current.state->tf[frame_id] = tf2::transformToKDL(msg->transforms[i]);
-            } else if(frame_id == model_->base_link && !model_->use_internal_localization) {
-                // we can save these segment transforms since they are not
-                // part of the robot
-                current.state->tf[frame_id] = tf2::transformToKDL(msg->transforms[i]);
-            } else if(frame_id == model_->odom_link) {
-                // we can save these segment transforms since they are not
-                // part of the robot
-                current.state->tf[frame_id] = tf2::transformToKDL(msg->transforms[i]);
-            }  else {
-                // warning: incoming transforms are local to segment and its parent, so this code was
-                // trashing the TF state which is in algo/odom frame.
-                // todo: Enable reception of TF state when robot_dynamics is not the TF publisher. The
-                //       TF entries are relative to the parent joint so to update the segment state we'd
-                //       have to start at base_link and apply transforms to each limb.
-                // current.state->tf[frame_id] = tf2::transformToKDL(msg->transforms[i]);
+            // does the transform have a prefix
+            //std::string prefix;
+            auto slash_itr = frame_id.find('/');
+            if(slash_itr != std::string::npos) {
+                // for now any prefix would indicate TF other than robot state so we ignore
+                continue;
+#if 0
+                prefix = frame_id.substr(0, slash_itr-1);
+                frame_id = frame_id.substr(slash_itr);
+#endif
             }
+
+            current.state->tf[frame_id] = tf2::transformToKDL(tfx);
+            updates++;
         }
+
+        if(updates > 0)
+            current.state->lastSegmentStateUpdate = rclcpp::Time(now);
     }
 }
 
