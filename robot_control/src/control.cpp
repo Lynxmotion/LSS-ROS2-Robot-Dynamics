@@ -186,8 +186,6 @@ void Control::resetTrajectory() {
 ///@returns the expected state at this moment in time.
 bool Control::update(const State& current, rclcpp::Time _now) {
     if(active) {
-        bool preview_publish_static_tf = false;
-
         if(!target) {
             resetTarget(current);
             if(!target)
@@ -199,6 +197,12 @@ bool Control::update(const State& current, rclcpp::Time _now) {
         KDL::Frame odom_tf;
         if(current.findTF(model_->odom_link, odom_tf))
             target->tf[model_->odom_link] = odom_tf;
+
+        KDL::Frame current_base_tf;
+        if(!current.findTF(model_->base_link, current_base_tf)) {
+            RCLCPP_WARN_ONCE(get_logger(), "failed to publish control state because state contains no base_link");
+            return false;
+        }
 
 #if 0
         // todo: track changes in state's odom => base_link frame, and apply those changes to
@@ -213,6 +217,52 @@ bool Control::update(const State& current, rclcpp::Time _now) {
         }
 #endif
         bool trajectoryPreview = !executeTrajectory;
+
+        double seconds_since_last_update = (lastUpdate.get_clock_type() == RCL_ROS_TIME)
+                ? (_now - lastUpdate).seconds()
+                : INFINITY;
+
+        // update limbs based on their control mode
+        for(short i=0; i < (short)target->limbs.size(); i++) {
+            auto& st_limb = target->limbs[i];
+            auto& model_limb = model_->limbs[i];
+
+            auto l_name =  model_->limbs[i]->options_.to_link;
+
+            KDL::Frame current_limb_tf;
+            if(current.findTF(l_name, current_limb_tf)) {
+                // make limb_tf relative to robot body
+                current_limb_tf = current_base_tf.Inverse() * current_limb_tf;
+                if(seconds_since_last_update < 10.0) {
+                    KDL::Vector delta_p = diff(current_limb_tf.p, st_limb.position.p, seconds_since_last_update);
+                    KDL::Vector delta_r = diff(current_limb_tf.M, st_limb.position.M, seconds_since_last_update);
+                    st_limb.velocity.vel = delta_p;
+                    st_limb.velocity.rot = delta_r;
+                }
+                st_limb.position = current_limb_tf;
+            }
+
+            if(st_limb.mode == Limb::Limp) {
+                // copy state from current
+                for(auto& j_name: model_limb->joint_names) {
+                    auto j_index = target->findJoint(j_name);
+                    if(j_index > 0) {
+                        target->position(j_index) = current.position(j_index);
+                        target->velocity(j_index) = current.velocity(j_index);
+                        target->effort(j_index) = current.effort(j_index);
+                    }
+                }
+
+                KDL::Frame f;
+                for(auto& s_name: model_limb->segment_names) {
+                    if(current.findTF(s_name, f))
+                        target->tf[s_name] = f;
+                }
+            }
+        }
+
+        lastUpdate = _now;
+
 
         // animate the current trajectory
         if(trajectory) {
@@ -265,7 +315,6 @@ bool Control::update(const State& current, rclcpp::Time _now) {
                 if(!trajectoryState) {
                     // create new trajectory preview
                     trajectoryState = std::make_shared<robotik::State>(source_state);
-                    preview_publish_static_tf = true;
                 } else {
                     // set existing trajectory preview state
                     *trajectoryState = source_state;
@@ -288,7 +337,7 @@ bool Control::update(const State& current, rclcpp::Time _now) {
             if (trajectory->updateState(*trajstate, _traj_now) >=0) {
                 // run the trajectory through the balance algorithm
                 // note: balance will call update on ground-forces and dynamics again
-                lastUpdate = _now;
+                lastTrajectoryUpdate = _now;
 
                 // todo: this only needs to be done if visualizing traj because Control does it below
                 //if(balance)
@@ -504,7 +553,7 @@ void Control::trajectory_callback(robot_model_msgs::msg::MultiSegmentTrajectory:
         now = rclcpp::Time(msg->header.stamp);
     } else {
         RCLCPP_WARN_ONCE(get_logger(), "trajectory publisher is not setting header timestamp");
-        now = lastUpdate;
+        now = lastTrajectoryUpdate;
     }
 
     if(msg->mode == robot_model_msgs::msg::MultiSegmentTrajectory::REPLACE_ALL) {
@@ -576,7 +625,7 @@ void Control::handle_trajectory_accepted(const std::shared_ptr<trajectory::GoalH
         now = rclcpp::Time(request.header.stamp);
     } else {
         RCLCPP_WARN_ONCE(get_logger(), "trajectory publisher is not setting header timestamp");
-        now = lastUpdate;
+        now = lastTrajectoryUpdate;
     }
 
     if(!trajectory) {

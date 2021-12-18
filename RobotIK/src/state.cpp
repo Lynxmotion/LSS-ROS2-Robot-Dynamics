@@ -183,7 +183,7 @@ void LimbState::updateFromModel(const Model& model)
         auto isLeg = l->options_.model == robotik::Limb::Leg;
         limbs.emplace_back(
                 l->options_.model,
-                isLeg ? Limb::Holding : Limb::Limp,
+                Limb::Limp,
                 isLeg);
     }
 }

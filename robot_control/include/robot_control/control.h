@@ -102,10 +102,13 @@ public:
     bool executeTrajectory;
 
 protected:
-    rclcpp::Time lastUpdate;
     State::SharedPtr trajectoryState;
 
-    rclcpp::Time last_static_publish_target, last_static_publish_trajectory;
+    rclcpp::Time
+        lastUpdate,
+        lastTrajectoryUpdate,
+        last_static_publish_target,
+        last_static_publish_trajectory;
 
     trajectory::Expression expression_from_msg(
             robot_model_msgs::msg::SegmentTrajectory msg,
