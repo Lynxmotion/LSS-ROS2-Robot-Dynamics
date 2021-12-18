@@ -87,7 +87,7 @@ public:
     ///@brief deallocate resources for the limb
     bool on_deactivate();
 
-    int updateIK(JointAndSegmentState& state, KDL::Frame new_effector_pose);
+    int updateIK(JointAndSegmentState& state, KDL::Frame new_effector_pose, bool relative_to_odom = false);
     NamedJointArray computePose(const JointState& state, KDL::Frame base);
 
     inline KDL::Chain* get_chain() { return chain.get(); }

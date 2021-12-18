@@ -116,14 +116,15 @@ KDL::Frame Limb::computeTFfromBase(const JointState& state) {
 #endif
 }
 
-int Limb::updateIK(JointAndSegmentState& state, KDL::Frame new_effector_pose)
+int Limb::updateIK(JointAndSegmentState& state, KDL::Frame new_effector_pose, bool relative_to_odom)
 {
     int updates = 0;
 
     // convert effector pose relative to limb's base link rather then the default (odom) frame
     KDL::Frame baseTF;
     if (state.findTF(options_.from_link, baseTF)) {
-        new_effector_pose = baseTF.Inverse() * new_effector_pose;
+        if(relative_to_odom)
+            new_effector_pose = baseTF.Inverse() * new_effector_pose;
     }
 
     auto updated_joints = computePose(state, new_effector_pose);
