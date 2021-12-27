@@ -179,6 +179,10 @@ bool LimbKinematics::updateJointsAndSegments(JointAndSegmentState& state, KDL::F
     auto chain = limb_->get_chain();
     auto state_position_sz = state.position.rows();
 
+    // if state is IK solved, we pull joint state from q_out instead
+    // otherwise we pull from state
+    bool pull_from_q_out = state_ == IK_SOLVED;
+
     // start off with the limb's base transform
     KDL::Frame tf;
     if(!state.findTF(limb_->options_.from_link, tf)) {
@@ -205,10 +209,16 @@ bool LimbKinematics::updateJointsAndSegments(JointAndSegmentState& state, KDL::F
 
             // get the joint rotational angle
             //pos = state.position(jidx);
-            pos = q_out_(j);
+            if(pull_from_q_out) {
+                pos = q_out_(j);
 
-            // update the joint position in state
-            state.position(jidx) = (jidx < state_position_sz) ? pos : 0.0;
+                // update the joint position in state
+                state.position(jidx) = (jidx < state_position_sz) ? pos : 0.0;
+            } else {
+                // pull from state, update our IK values
+                pos = state.position(jidx);
+                q_out_(j) = pos;    // maybe not needed
+            }
 
             // we only increment joint number for non-fixed joints
             j++;
