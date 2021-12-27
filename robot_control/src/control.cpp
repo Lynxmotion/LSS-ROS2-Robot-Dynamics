@@ -25,6 +25,8 @@ Control::Control(std::string publisher_prefix, std::string control_namespace, st
 void Control::activate(Model::SharedPtr model, rclcpp_lifecycle::LifecycleNode& node) {
     model_ = model;
 
+    kinematics.activate(model_);
+
     trajectory_sub_ = node.create_subscription<robot_model_msgs::msg::MultiSegmentTrajectory>(
             publisher_prefix_ + "/trajectory",
             10,

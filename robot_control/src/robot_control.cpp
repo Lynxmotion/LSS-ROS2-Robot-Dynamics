@@ -99,7 +99,6 @@ void Control::robot_description_callback(std_msgs::msg::String::SharedPtr msg)
   /// configure dynamics for new model
   ///
   current.control = std::make_shared<robotik::Control>();
-  current.control->activate(model_, *this);
   current.control->executeTrajectory = false;
 
   current.state = std::make_shared<robotik::State>(*model_);
@@ -250,6 +249,9 @@ Control::on_activate(const rclcpp_lifecycle::State &)
     CallbackReturn rv = CallbackReturn::SUCCESS;
 
     model_->on_activate(*this);
+
+    current.control->activate(model_, *this);
+
     control_state_pub_->on_activate();
 
     return rv;
@@ -260,6 +262,7 @@ Control::on_deactivate(const rclcpp_lifecycle::State &)
 {
     RCLCPP_INFO(get_logger(), "deactivating robot dynamics");
 
+    current.control->deactivate();
     model_->on_deactivate();
     control_state_pub_->on_deactivate();
 

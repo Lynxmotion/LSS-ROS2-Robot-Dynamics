@@ -110,6 +110,8 @@ protected:
         last_static_publish_target,
         last_static_publish_trajectory;
 
+    Kinematics kinematics;
+
     trajectory::Expression expression_from_msg(
             robot_model_msgs::msg::SegmentTrajectory msg,
             std::string default_reference_frame,
