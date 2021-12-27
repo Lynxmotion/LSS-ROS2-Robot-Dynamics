@@ -339,6 +339,15 @@ int Kinematics::moveBase(JointAndSegmentState& state, const KDL::Frame& effector
     return r;
 }
 
+void Kinematics::invalidate(std::string limb, LimbKinematics::SolutionState what_changed)
+{
+    auto itr = limbs_.find(limb);
+    if(itr != limbs_.end()) {
+        return itr->second.invalidate(what_changed);
+    } else
+        throw std::runtime_error("limb " + limb + " not found");
+}
+
 bool Kinematics::updateState(State& state)
 {
     // complete update of any pending limbs

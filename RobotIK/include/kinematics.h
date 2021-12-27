@@ -68,7 +68,7 @@ public:
     //KDL::JntArray& q()
     //KDL::JntArray& guess()
 
-    inline void invalidate() { state_ = INVALID; }
+    inline void invalidate(SolutionState what_changed = INVALID) { state_ = what_changed; }
 
     inline double mass() const { return mass_; }
     inline KDL::Vector CoM() const { return center_of_mass_; }
@@ -133,6 +133,8 @@ public:
 
     /// After limbs have been updated, update whole robot state
     bool updateState(State& state);
+
+    void invalidate(std::string limb, LimbKinematics::SolutionState what_changed = LimbKinematics::INVALID);
 
 private:
     Model::SharedPtr model_;
