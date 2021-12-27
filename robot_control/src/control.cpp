@@ -245,21 +245,34 @@ bool Control::update(const State& current, rclcpp::Time _now) {
             }
 
             if(st_limb.mode == Limb::Limp) {
-                // copy state from current
+                // this limb is not under control,
+                // we will not do any Inverse Kinematics and
+                // simply copy state from current
                 for(auto& j_name: model_limb->joint_names) {
                     auto j_index = target->findJoint(j_name);
-                    if(j_index > 0) {
+                    if(j_index >= 0) {
                         target->position(j_index) = current.position(j_index);
                         target->velocity(j_index) = current.velocity(j_index);
                         target->effort(j_index) = current.effort(j_index);
                     }
                 }
 
+#if 0
                 KDL::Frame f;
                 for(auto& s_name: model_limb->segment_names) {
                     if(current.findTF(s_name, f))
                         target->tf[s_name] = f;
                 }
+
+#endif
+                kinematics.invalidate(l_name, LimbKinematics::JOINTS);
+            } else if(st_limb.mode >= Limb::Holding) {
+                // We want to maintain position so we should not copy from current,
+                // nor perform any inverse kinematics as joint info should not change
+                // tldr; do nothing
+            } else if(st_limb.mode >= Limb::Seeking) {
+                // perform inverse kinematics based on Limb targets
+                kinematics.moveEffector(*target, l_name, st_limb.position);
             }
         }
 
@@ -379,8 +392,7 @@ abort_trajectory:
 
         // update state of target
         // todo: this should be done after target is updated
-        model_->updateIK(*target);
-        model_->compute_TF_CoM(*target);
+        kinematics.updateState(*target);
 
         model_->updateContacts(*target);
         model_->updateDynamics(*target);
