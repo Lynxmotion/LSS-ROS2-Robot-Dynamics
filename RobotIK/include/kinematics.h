@@ -109,7 +109,17 @@ class Kinematics
 public:
     static const int SUCCESS = KDL::SolverI::E_NOERROR;
 
+    /// default constructor defers activation of kinematics for later
+    Kinematics();
+
+    /// construct and activate kinematics on the given model
     explicit Kinematics(Model::SharedPtr model);
+
+    /// activate kinematics on the given model
+    void activate(Model::SharedPtr model);
+
+    /// reset kinematics state
+    void deactivate();
 
     /// compute IK to move the effector to the new position,
     /// updates joint angles and segment positions within the state.

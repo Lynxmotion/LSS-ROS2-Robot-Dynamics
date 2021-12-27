@@ -188,6 +188,9 @@ bool LimbKinematics::updateJointsAndSegments(JointAndSegmentState& state, KDL::F
     mass_ = 0;
     center_of_mass_ = KDL::Vector::Zero();
 
+    if(requires_configure(state) && !configure(state))
+        return -1;      // configure failed
+
     // get information about the chain
     int j = 0;
     auto nj = chain->getNrOfSegments();
@@ -254,15 +257,37 @@ bool LimbKinematics::updateState(State& state)
     return true;
 }
 
-Kinematics::Kinematics(Model::SharedPtr model)
-: model_(std::move(model)), mass_(0.0)
+Kinematics::Kinematics()
+    : mass_(0.0)
 {
+}
+
+Kinematics::Kinematics(Model::SharedPtr model)
+    : mass_(0.0)
+{
+    activate(model);
+}
+
+void Kinematics::activate(Model::SharedPtr model)
+{
+    model_ = std::move(model);
+    mass_ = 0.0;
+    center_of_mass_.Zero();
     for(auto& l: model_->limbs) {
+        if(l->joint_names.empty())
+            throw std::runtime_error("model contains limb " + l->options_.to_link + " with no moving joints");
         limbs_first_joint.insert(l->joint_names[0]);
         limbs_.emplace(std::make_pair(l->options_.to_link, l));
     }
 
     // todo: calculate the mass and CoM of non-limb parts
+}
+
+void Kinematics::deactivate()
+{
+    model_.reset();
+    limbs_.clear();
+    limbs_first_joint.clear();
 }
 
 /// compute IK to move the effector to the new position,
