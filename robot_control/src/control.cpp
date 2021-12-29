@@ -28,7 +28,7 @@ void Control::activate(Model::SharedPtr model, rclcpp_lifecycle::LifecycleNode& 
     kinematics.activate(model_);
 
     trajectory_sub_ = node.create_subscription<robot_model_msgs::msg::MultiSegmentTrajectory>(
-            publisher_prefix_ + "/trajectory",
+            "~/trajectory",
             10,
             std::bind(&Control::trajectory_callback, this, std::placeholders::_1)
     );
