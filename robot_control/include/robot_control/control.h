@@ -76,6 +76,7 @@ public:
 
     ///@brief return the desired state according to any active trajectories
     inline State::SharedPtr getTargetState() const { return target; }
+    inline State::SharedPtr getTrajectoryPreviewState() const { return executeTrajectory ? nullptr : trajectoryState; }
 
     inline const ModelInterface& getModelInterface() const { return *model_; }
     inline ModelInterface& getModelInterface() { return *model_; }

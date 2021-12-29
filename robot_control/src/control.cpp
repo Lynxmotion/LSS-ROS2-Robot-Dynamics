@@ -394,8 +394,8 @@ abort_trajectory:
         // todo: this should be done after target is updated
         kinematics.updateState(*target);
 
-        model_->updateContacts(*target);
-        model_->updateDynamics(*target);
+        //model_->updateContacts(*target);
+        //model_->updateDynamics(*target);
 
 #if 0
         if(lastUpdate.seconds() < 0.05) {
