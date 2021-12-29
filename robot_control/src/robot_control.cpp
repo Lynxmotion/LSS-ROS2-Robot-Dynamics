@@ -289,15 +289,16 @@ void Control::updateRobotState()
 
     try {
 
-        if (model_->compute_TF_CoM(*current.state)) {
-            KDL::Frame tf_base, tf_footprint;
+        // if we dont get the segment state from /tf and /tf_static we can
+        // compute it using our model information
+        // if (model_->compute_TF_CoM(*current.state)) {
+        // }
 
-            current.state->lastSegmentStateUpdate = _now;
+        current.state->lastSegmentStateUpdate = _now;
 
-            if(current.state && current.control->update(*current.state, _now)) {
-                // send target state to (typically) ros2 controls
-                current.control->publish_control();
-            }
+        if(current.state && current.control->update(*current.state, _now)) {
+            // send target state to (typically) ros2 controls
+            current.control->publish_control();
         }
     } catch(robotik::Exception& e) {
         RCLCPP_INFO(get_logger(), e.what());
@@ -329,7 +330,7 @@ void Control::publish_control_state(const robotik::State& current, const robotik
     if(!control_state_msg_ || !control_state_pub_->is_activated())
         return;
 
-    if(!prefix.empty() && prefix.back() != '/') {
+    if(!prefix.empty() && prefix.back() != '/' && !current.relativeFrameName.empty()) {
         prefix += '/';
     }
 
