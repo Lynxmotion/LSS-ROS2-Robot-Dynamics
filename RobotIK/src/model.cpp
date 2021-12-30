@@ -438,25 +438,6 @@ KDL::Frame Model::getRelativeFrame(const FrameRef& ref, const State& state)
     return f;
 }
 
-Limb::Mode Model::getLimbMode(std::string limb, const State& state) const {
-    auto itr = std::find_if(limbs.begin(), limbs.end(),
-                 [&limb](const Limb::SharedPtr & l) { return l->options_.to_link == limb; });
-    return (itr != limbs.end())
-        ? getLimbMode(itr - limbs.begin(), state)
-        : Limb::Limp;
-}
-
-Limb::Mode Model::getLimbMode(size_t limb_ordinal, const State& state) const {
-    if(limb_ordinal >= limbs.size())
-        return Limb::Limp;
-    if(limb_ordinal <= state.limbs.size()) {
-        auto limb_request = state.limbs[limb_ordinal];
-        return limb_request.mode;
-    }
-
-    return Limb::Limp;
-}
-
 bool Model::compute_TF_CoM(State& state)
 {
     // todo: compute_TF used to be from identity, now using whatever base_link is set to
@@ -600,71 +581,6 @@ bool Model::updateState(State& state) {
     }
     return false;
 }
-
-int Model::updateIK(State& state) {
-    int updates = 0;
-
-#if 1
-    // todo: Use the new Kinematics object now
-    // new code just applies the limb position to the joint and segment state
-    // old code treated state::Limb as a request and was wonky
-    for(size_t i = 0, _i = std::min(state.limbs.size(), limbs.size()); i < _i; i++) {
-        auto& state_limb = state.limbs[i];
-        auto& model_limb = limbs[i];
-
-        if(model_limb->updateIK(state, state_limb.position) > 0)
-            updates++;
-    }
-#else
-    size_t ln = 0;
-    for(auto& limb: limbs) {
-        // get a limb request if it exists
-        Limb::State req;
-        if(ln < state.limbs.size())
-            req = state.limbs[ln];
-        else {
-            req.limbType = limb->options_.model;
-            req.mode = (req.limbType == Limb::Leg) ? Limb::Holding : Limb::Limp;
-        }
-
-        auto mode = getLimbMode(ln, state);
-        if(mode != Limb::Limp || state.type == TrajectoryState) {
-            /*
-             * todo: this code is now almost identical to Limb::computeIK() except that the mode==Seeking test isnt done
-             */
-            KDL::Frame baseTF, limbTF;
-            if (/*req.mode != Limb::Limp &&*/ state.findTF(limb->options_.from_link, baseTF) &&
-                state.findTF(limb->options_.to_link, limbTF)) {
-                // we are forcing to seek position. This is typically set in Trajectory::updateState() or through direct limb manipulation
-                if (mode == Limb::Seeking) {
-                    limbTF = req.targetTF;
-                }
-
-                // limbTF needs to be relative to baseTF
-                KDL::Frame relLimbTF = baseTF.Inverse() * limbTF;
-                auto limb_target = limb->computePose(state, relLimbTF);
-
-                if (!limb_target.empty()) {
-                    state.tf[limb->options_.to_link] = limbTF;  // store original event TF to target segment
-
-                    // updates joints in state
-                    // todo: we could make this more efficient if composePose already updates target state
-                    for (auto &joint: limb_target) {
-                        auto jordinal = state.findJoint(joint.name);
-                        if (jordinal >= 0)
-                            state.position(jordinal) = joint.position;
-                    }
-
-                    updates++;
-                }
-            }
-        }
-        ln++;
-    }
-#endif
-    return updates;
-}
-
 
 bool Model::updateContacts(State& state) {
     // if we have an odom frame in the state, include that in transform
@@ -1083,6 +999,7 @@ void Model::balance(State& state) {
     balance(state, state);
 }
 
+#if 0
 void Model::balance(State& state, const SupportState& contacts) {
     auto &base = state.tf[base_link];
 
@@ -1176,6 +1093,7 @@ void Model::balance(State& state, const SupportState& contacts) {
     //compute_TF_CoM(state);
 
 }
+#endif
 
 std::vector<KDL::Vector> Model::convexHull(const std::vector<KDL::Vector>& points) const {
     // if there are 3 or less points then we logically already have the convex hull

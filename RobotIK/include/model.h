@@ -59,10 +59,6 @@ namespace robotik {
         // todo: I think all update-state and balance algos can be const, since we shouldnt be modifying model state in those function
         bool updateState(State& state);
 
-        /// @brief Calculate the IK on the Limbs
-        /// @returns the number of limbs that were updated
-        int updateIK(State& state);
-
         /// @brief take joint positions (pose angles) and compute TF, CoM, CoP
         /// Requires state joint positions to be updated.
         bool compute_TF_CoM(State& state);
@@ -115,7 +111,7 @@ namespace robotik {
         /// Given an input (current) state, use the dynamics information to determine a goal state where the robot
         /// is in support (balanced). You must supply the limb ordinal values (as they are ordered in model::limbs)
         /// to specify which limbs are in contact.
-        void balance(State& state, const SupportState& contacts);
+        //void balance(State& state, const SupportState& contacts);
 
         ///@brief Get all the names of joints in the model
         const Names& getJoints() const { return joints_; }
@@ -151,9 +147,6 @@ namespace robotik {
         /// over the Center-of-Mass. Therefor, the robot will be forced to move legs to compensate for balance.
         /// todo: move interaction related stuff to an interface
         std::string interactingSegment;
-
-        Limb::Mode getLimbMode(std::string limb, const State& state) const;
-        Limb::Mode getLimbMode(size_t limb, const State& state) const;
 
         std::shared_ptr<KDL::Tree> tree_;
         std::vector<robotik::Limb::SharedPtr> limbs;
