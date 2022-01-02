@@ -45,11 +45,12 @@ Control::Control(
         const std::string & node_name,
         const rclcpp::NodeOptions & options
 ) : rclcpp_lifecycle::LifecycleNode(node_name, options),
-    tfBuffer(get_clock()), efforts_updated(false)
+    efforts_updated(false)
 {
-    tfBuffer.setUsingDedicatedThread(true);
-
     declare_parameter("frequency", rclcpp::ParameterValue(10.0f));
+    declare_parameter("progress_frequency", rclcpp::ParameterValue(5.0f));
+    declare_parameter("publish_state_frequency", rclcpp::ParameterValue(0.0f));
+    declare_parameter("preview_frequency", rclcpp::ParameterValue(0.0f));
     declare_parameter("diagnostic_period", rclcpp::ParameterValue((rcl_duration_value_t)5));
     declare_parameter("self_manage", rclcpp::ParameterValue(false));
 
@@ -99,14 +100,14 @@ void Control::robot_description_callback(std_msgs::msg::String::SharedPtr msg)
   ///
   /// configure dynamics for new model
   ///
-  current.state = std::make_shared<robotik::State>(*model_);
+  current = std::make_shared<robotik::State>(*model_);
 
   // start listening for joint state updates
   if(!joint_state_listener)
     joint_state_listener = std::make_shared<robotik::JointStateListener>(
             *this,
             get_parameter(JOINT_STATE_TOPIC_PARAMETER).get_value<std::string>());
-  joint_state_listener->state(current.state);
+  joint_state_listener->state(current);
 
   if(!model_state_listener)
       model_state_listener = std::make_shared<robotik::ModelStateListener>(
@@ -114,7 +115,7 @@ void Control::robot_description_callback(std_msgs::msg::String::SharedPtr msg)
               get_parameter(MODEL_STATE_TOPIC_PARAMETER).get_value<std::string>(),
               "odom");
   model_state_listener->model(model_);
-  model_state_listener->state(current.state);
+  model_state_listener->state(current);
 
   // todo: is there a way we can exctract this from the URDF or SRDF?
   set_joints(get_parameter("joint_names").get_value<std::vector<std::string>>());
@@ -131,9 +132,6 @@ rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn
 Control::on_configure(const rclcpp_lifecycle::State &)
 {
     RCLCPP_INFO(get_logger(), "configuring robot control");
-
-    //tf_listener = std::make_shared<tf2_ros::TransformListener>(tfBuffer, true);
-    //tf_listener = std::make_shared<tf2_ros::TransformListener>(tfBuffer, shared_from_this(), false, 10, 10);
 
 #if 1
     // load URDF from parameter server
@@ -181,11 +179,42 @@ Control::on_configure(const rclcpp_lifecycle::State &)
     control_state_msg_ = std::make_shared<robot_model_msgs::msg::ControlState>();
 
     auto frequency = get_parameter("frequency").get_value<float>();
-    RCLCPP_INFO(get_logger(), "robot control set to %4.2fhz", frequency);
+    RCLCPP_INFO(get_logger(), "robot control loop set to %4.2fhz", frequency);
     update_timer_ = create_wall_timer(
             std::chrono::duration_cast<std::chrono::nanoseconds>(
                     std::chrono::duration<double>(1.0 / frequency)),
-            std::bind(&Control::publish, this));
+            std::bind(&Control::control_update, this));
+
+    auto preview_frequency = get_parameter("preview_frequency").get_value<float>();
+    if(preview_frequency > 0.0) {
+        RCLCPP_INFO(get_logger(), "publishing target preview data at %4.2fhz", preview_frequency);
+        preview_timer_ = create_wall_timer(
+                std::chrono::duration_cast<std::chrono::nanoseconds>(
+                        std::chrono::duration<double>(1.0 / preview_frequency)),
+                        std::bind(&Control::publish_preview, this));
+    }
+
+    auto progress_frequency = get_parameter("progress_frequency").get_value<float>();
+    if(progress_frequency > 0.0) {
+        RCLCPP_INFO(get_logger(), "publishing progress notifications at %4.2fhz", progress_frequency);
+        progress_timer_ = create_wall_timer(
+                std::chrono::duration_cast<std::chrono::nanoseconds>(
+                        std::chrono::duration<double>(1.0 / progress_frequency)),
+                        std::bind(&Control::publish_progress, this));
+    }
+
+    auto publish_state_frequency = get_parameter("publish_state_frequency").get_value<float>();
+    if(publish_state_frequency > 0.0) {
+        RCLCPP_INFO(get_logger(), "publishing control state messages at %4.2fhz", progress_frequency);
+        publish_state_timer_ = create_wall_timer(
+                std::chrono::duration_cast<std::chrono::nanoseconds>(
+                        std::chrono::duration<double>(1.0 / publish_state_frequency)),
+                        std::bind(&Control::publish_control_state, this));
+    } else {
+        RCLCPP_WARN(get_logger(),
+            "control state will be published every control loop, "
+            "you can change this with the 'publish_state_frequency' parameter");
+    }
 
     rclcpp::Parameter diagnostic_period = get_parameter("diagnostic_period");
     diag_timer_ = create_wall_timer(
@@ -364,37 +393,6 @@ Control::on_error(const rclcpp_lifecycle::State &)
     return rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn::SUCCESS;
 }
 
-void Control::updateRobotState()
-{
-    auto _now = now();
-
-    try {
-        // ensure we are getting valid joint data
-        auto joint_age = _now - current.state->lastJointStateUpdate;
-        if(joint_age.seconds() > 5.0) {
-            // stale joint data
-            RCLCPP_WARN_THROTTLE(get_logger(), *get_clock(), 5, "joint state data is stale, disabling robot control!");
-            return;
-        }
-
-
-        // if we dont get the segment state from /tf and /tf_static we can
-        // compute it using our model information
-        if (!model_->compute_TF_CoM(*current.state)) {
-            RCLCPP_WARN_THROTTLE(get_logger(), *get_clock(), 5, "failed to compute segment TF data for current state");
-        }
-
-        current.state->lastSegmentStateUpdate = _now;
-
-        if(current.state && update_target(*current.state, _now)) {
-            // send target state to (typically) ros2 controls
-            publish_control();
-        }
-    } catch(robotik::Exception& e) {
-        RCLCPP_INFO(get_logger(), e.what());
-    }
-}
-
 void set_effector_msg(robot_model_msgs::msg::EffectorState& effector, const KDL::Frame& current_pose, const KDL::Frame& target_pose) {
     kdl_frame_to_pose(current_pose, effector.pose);
     kdl_frame_to_pose(target_pose, effector.target);
@@ -413,26 +411,22 @@ void set_effector_msg(robot_model_msgs::msg::EffectorState& effector, const KDL:
     effector.error = 0;
 }
 
-void Control::publish_control_state(const robotik::State& current, const robotik::State& target, rclcpp::Time now, std::string prefix)
+void Control::publish_control_state() try
 {
-    if(!control_state_msg_ || !control_state_pub_->is_activated())
+    if(!target || !control_state_msg_ || !control_state_pub_->is_activated())
         return;
 
-    if(!prefix.empty() && prefix.back() != '/' && !current.relativeFrameName.empty()) {
-        prefix += '/';
-    }
-
-    control_state_msg_->header.frame_id = prefix + current.relativeFrameName;
-    control_state_msg_->header.stamp = now;
+    //control_state_msg_->header.frame_id = prefix + current.relativeFrameName;
+    control_state_msg_->header.stamp = now();
 
     KDL::Frame current_base_tf;
-    if(!current.findTF(model_->base_link, current_base_tf)) {
+    if(!current->findTF(model_->base_link, current_base_tf)) {
         RCLCPP_WARN_ONCE(get_logger(), "failed to publish control state because state contains no base_link");
         return;
     }
 
     KDL::Frame target_base_tf;
-    if(target.findTF(model_->base_link, target_base_tf)) {
+    if(target->findTF(model_->base_link, target_base_tf)) {
         set_effector_msg(control_state_msg_->base, current_base_tf, target_base_tf);
     } else
         set_effector_msg(control_state_msg_->base, current_base_tf);
@@ -442,7 +436,7 @@ void Control::publish_control_state(const robotik::State& current, const robotik
 
     // figure out what limbs are supporting
     std::vector<bool> supporting(limb_count, false);
-    for(const auto& contact : current.contacts) {
+    for(const auto& contact : current->contacts) {
         if(contact.limb > 0 && contact.limb < limb_count)
             supporting[contact.limb] = true;
     }
@@ -490,6 +484,9 @@ void Control::publish_control_state(const robotik::State& current, const robotik
     }
 
     control_state_pub_->publish(*control_state_msg_);
+} catch (std::exception & e) {
+    RCLCPP_ERROR(get_logger(), "Failed to publish control state: %s", e.what());
+    deactivate();
 }
 
 rcl_interfaces::msg::SetParametersResult Control::parameter_set_callback(const std::vector<rclcpp::Parameter> & params) {
@@ -515,7 +512,7 @@ void Control::tf_callback(tf2_msgs::msg::TFMessage::SharedPtr msg, bool /* is_st
 {
     int updates = 0;
     builtin_interfaces::msg::Time now;
-    if(model_ && current.state) {
+    if(model_ && current) {
         for (auto i = 0u; i < msg->transforms.size(); i++) {
             auto& tfx = msg->transforms[i];
             auto frame_id = tfx.child_frame_id;
@@ -540,45 +537,78 @@ void Control::tf_callback(tf2_msgs::msg::TFMessage::SharedPtr msg, bool /* is_st
             //      odom frame like our State is...so this is pretty useless to us unless we
             //      integrate into the model tree or change the way our State works
             if(frame_id == "world" || frame_id == model_->odom_link || frame_id == model_->base_link)
-                current.state->tf[frame_id] = tf2::transformToKDL(tfx);
+                current->tf[frame_id] = tf2::transformToKDL(tfx);
             updates++;
         }
 
         if(updates > 0)
-            current.state->lastSegmentStateUpdate = rclcpp::Time(now);
+            current->lastSegmentStateUpdate = rclcpp::Time(now);
     }
 }
 
-void Control::publish() try {
-    //RCLCPP_DEBUG(get_logger(), "Querying for current IMU data");
+void Control::control_update() try {
     rclcpp::Time _now = now();
 
     // ensure we have state to publish
-    if(!current.state)
+    if(!current)
         return;
 
     if(model_->tree_ && !model_->limbs.empty()
-                && current.state->lastJointStateUpdate.get_clock_type()==RCL_ROS_TIME
-                && current.state->lastSupportStateUpdate.get_clock_type()==RCL_ROS_TIME) {
-        auto sinceJoints = _now - current.state->lastJointStateUpdate;
-        auto sinceModel = _now - current.state->lastSupportStateUpdate;
+                && current->lastJointStateUpdate.get_clock_type()==RCL_ROS_TIME
+                && current->lastSupportStateUpdate.get_clock_type()==RCL_ROS_TIME) {
 
-        if(sinceJoints.seconds() > 1.0 || sinceModel.seconds() > 1.0) {
-            // todo: we are no longer getting joint updates, we shouldnt control either
+        // ensure we are getting valid joint data
+        auto sinceJoints = _now - current->lastJointStateUpdate;
+        if(sinceJoints.seconds() > 2.0) {
+            // stale joint data
+            RCLCPP_WARN_THROTTLE(get_logger(), *get_clock(), 5, "joint state data is stale, disabling robot control!");
             return;
         }
 
-        updateRobotState();
+        // ensure we are getting valid robot model data
+        auto sinceModel = _now - current->lastSupportStateUpdate;
+        if(sinceModel.seconds() > 2.0) {
+            // stale robot model data
+            RCLCPP_WARN_THROTTLE(get_logger(), *get_clock(), 5, "robot model state is stale, disabling robot control!");
+            return;
+        }
 
-        publish_control_state(*current.state, *target, _now);
+        // if we dont get the segment state from /tf and /tf_static we can
+        // compute it using our model information
+        if (!model_->compute_TF_CoM(*current)) {
+            RCLCPP_WARN_THROTTLE(get_logger(), *get_clock(), 5, "failed to compute segment TF data for current state");
+        }
+        current->lastSegmentStateUpdate = _now;
+
+        // update the target state using the limb model
+        if(current && update_target(*current, _now)) {
+            // send target state to (typically) ros2 controls
+            publish_joint_control();
+        }
+
+        // publish our control state if we don't have it setup on a dedicated timer
+        if(!publish_state_timer_)
+            publish_control_state();
+
         lastControlUpdate = _now;
-
-        // todo: setup a timer to publish preview less often as control
-        publish_target_preview(_now);
     }
 
 } catch (std::exception & e) {
     RCLCPP_ERROR(get_logger(), "Failed to poll and publish data: %s", e.what());
+    deactivate();
+}
+
+void Control::publish_progress() try {
+    if(!target)
+        return;
+
+    rclcpp::Time _now = now();
+    for(auto& action: actions) {
+        action->send_feedback(limbs_, *model_, _now);
+    }
+
+} catch (std::exception & e) {
+    RCLCPP_ERROR(get_logger(), "Failed to publish progress: %s", e.what());
     deactivate();
 }
 
@@ -872,71 +902,71 @@ bool Control::update_target(const State& current, rclcpp::Time _now) {
     return true;
 }
 
-bool Control::publish_control() {
+bool Control::publish_joint_control() {
     // execute the trajectory
-    if(target) {
-        auto& trajstate = *target;
-        if (trajstate.joints.size() != (size_t) trajstate.position.rows()) {
-            RCLCPP_INFO(get_logger(),
-                        "refuse to publish when joint names and positions arrays are not equal length");
-            return false;
-        }
+    if(!target)
+        return false;
 
-        // todo: publishing joints order should match Q_NR joint order
-        if (joint_trajectory_msg_->joint_names.empty()) {
-            set_joints(trajstate.joints);
-        } else {
-            // there should be no case where these arent equal
-            assert(joint_trajectory_index.size() == joint_trajectory_msg_->joint_names.size());
-        }
-
-        bool allow_publish = true;
-        auto nj = joint_trajectory_msg_->joint_names.size();
-
-        // allocate a single trajectory keyframe
-        if (joint_trajectory_msg_->points.size() != 1) {
-            joint_trajectory_msg_->points.resize(1);
-        }
-
-        // set the trajectory
-        auto &points = joint_trajectory_msg_->points[0];
-        if (points.positions.size() != nj)
-            points.positions.resize(nj);
-
-        for (size_t j = 0, _j = nj; j != _j; j++) {
-            // lookup joint position using index
-            auto j_idx = joint_trajectory_index[j];
-            auto j_name = joint_trajectory_msg_->joint_names[j];
-
-            // verify index is correct, if not make a correction
-            if(trajstate.joints[j_idx] != j_name) {
-                // find it the long way
-                auto j_itr = std::find(trajstate.joints.begin(), trajstate.joints.end(), j_name);
-                if (j_itr != trajstate.joints.end()) {
-                    j_idx = joint_trajectory_index[j] = (j_itr - trajstate.joints.begin());
-                } else {
-                    // joint name was not found, this is a trajic error
-                    RCLCPP_ERROR_STREAM_ONCE(get_logger(), "cannot publish joint "
-                    << j_name << " because it is not found in state");
-                    allow_publish = false;
-                }
-            }
-
-            // add the joint position
-            points.positions[j] = trajstate.position(j_idx);
-            // todo: publish velocity and acceleration for trajectories
-        }
-
-        // publish new control values
-        if(allow_publish)
-            joint_trajectory_pub_->publish(*joint_trajectory_msg_);
-
-        if(efforts_updated)
-            publish_efforts();
-
-        return true;
+    auto& trajstate = *target;
+    if (trajstate.joints.size() != (size_t) trajstate.position.rows()) {
+        RCLCPP_INFO(get_logger(),
+                    "refuse to publish when joint names and positions arrays are not equal length");
+        return false;
     }
-    return false;
+
+    // todo: publishing joints order should match Q_NR joint order
+    if (joint_trajectory_msg_->joint_names.empty()) {
+        set_joints(trajstate.joints);
+    } else {
+        // there should be no case where these arent equal
+        assert(joint_trajectory_index.size() == joint_trajectory_msg_->joint_names.size());
+    }
+
+    bool allow_publish = true;
+    auto nj = joint_trajectory_msg_->joint_names.size();
+
+    // allocate a single trajectory keyframe
+    if (joint_trajectory_msg_->points.size() != 1) {
+        joint_trajectory_msg_->points.resize(1);
+    }
+
+    // set the trajectory
+    auto &points = joint_trajectory_msg_->points[0];
+    if (points.positions.size() != nj)
+        points.positions.resize(nj);
+
+    for (size_t j = 0, _j = nj; j != _j; j++) {
+        // lookup joint position using index
+        auto j_idx = joint_trajectory_index[j];
+        auto j_name = joint_trajectory_msg_->joint_names[j];
+
+        // verify index is correct, if not make a correction
+        if(trajstate.joints[j_idx] != j_name) {
+            // find it the long way
+            auto j_itr = std::find(trajstate.joints.begin(), trajstate.joints.end(), j_name);
+            if (j_itr != trajstate.joints.end()) {
+                j_idx = joint_trajectory_index[j] = (j_itr - trajstate.joints.begin());
+            } else {
+                // joint name was not found, this is a trajic error
+                RCLCPP_ERROR_STREAM_ONCE(get_logger(), "cannot publish joint "
+                << j_name << " because it is not found in state");
+                allow_publish = false;
+            }
+        }
+
+        // add the joint position
+        points.positions[j] = trajstate.position(j_idx);
+        // todo: publish velocity and acceleration for trajectories
+    }
+
+    // publish new control values
+    if(allow_publish)
+        joint_trajectory_pub_->publish(*joint_trajectory_msg_);
+
+    if(efforts_updated)
+        publish_efforts();
+
+    return true;
 }
 
 void Control::publish_efforts() {
@@ -947,10 +977,21 @@ void Control::publish_efforts() {
 }
 
 
-void Control::publish_target_preview(const rclcpp::Time& now, std::string prefix)
+void Control::publish_preview() try
 {
-    if(target)
-        return publish_preview_state(*target, prefix, now, last_static_publish_target);
+    if(!target)
+        return;
+
+    rclcpp::Time _now = now();
+    return publish_preview_state(
+            *target,
+            "target",
+            _now,
+            last_static_publish_target);
+}
+catch (std::exception & e) {
+    RCLCPP_ERROR(get_logger(), "Failed to publish target TF data: %s", e.what());
+    deactivate();
 }
 
 void Control::publish_preview_state(const State& state, const std::string& prefix, const rclcpp::Time& now, rclcpp::Time& last_static_publish)

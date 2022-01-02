@@ -6,7 +6,6 @@
 
 #include "rclcpp/client.hpp"
 #include "rclcpp/rate.hpp"
-#include <tf2_ros/buffer.h>
 
 #include "rclcpp_lifecycle/lifecycle_node.hpp"
 #include "rclcpp_lifecycle/lifecycle_publisher.hpp"
@@ -77,8 +76,6 @@ public:
     rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn
     on_error(const rclcpp_lifecycle::State &) override;
 
-    void updateRobotState();
-
     /*
      * Integration of public interface to old Control class here
      */
@@ -88,13 +85,37 @@ public:
     ///@returns the expected state at this moment in time.
     bool update_target(const State& current, rclcpp::Time _now);
 
-    bool publish_control();
+    /// @brief Send joint commands to joint controllers (i.e. ros2_controls)
+    /// Joint state/angles are read from the target state and sent to the joint position/velocity controllers.
+    bool publish_joint_control();
 
+    /// @brief Send force commands to joint controllers (i.e. ros2_controls)
+    /// Joint state is read from the target state and sent to the joint effort controllers.
     void publish_efforts();
 
-    void publish_target_preview(const rclcpp::Time& now, std::string prefix = "target");
+    /// @brief Sends target model state as TF data with a "target" prefix
+    /// You can add a second RobotModel node to RViz2 and set the prefix to "target" and see a rendered model
+    /// representing the target state.
+    /// This is optional and is only sent if the `preview_frequency` parameter is set.
+    void publish_preview();
 
+    /// @brief Publish progress on any active trajectory actions
+    /// This is optional and is only sent if the `progress_frequency` parameter is set.
+    void publish_progress();
+
+    /// @brief Publish ControlState messages to the control_state topic
+    /// This is optional but highly recommended for your robot control algorithm. In most casees your control
+    /// program will only need the information in (RobotDyanmics) ModelState and ControlState.
+    /// Published when the `publish_state_frequency` parameter is set.
+    void publish_control_state();
+
+    /// @brief Publish diagnostics on how this node is performing
+    void publish_diagnostics();
+
+    /// @brief Reset target state from current state
     void resetTarget(const State& current);
+
+    /// @brief Cancel any active trajectory actions
     void resetTrajectory();
 
     ///@brief return the desired state according to any active trajectories
@@ -107,28 +128,20 @@ public:
 
     void set_joints(const std::vector<std::string>& joint_names);
 
+protected:
+    void control_update();
+
+    robotik::Model::SharedPtr model_;
+
+    robotik::State::SharedPtr current;
+    State::SharedPtr target;
+
     // todo: mapping of standingHeight to feet positions should be moved into here, then control
     //  (1) updates feet TF or a Trajectory updates Control feet TF  (control could have multiple Trajectories running as well)
     //        Control is basically the user-program, it updates feet/arm TF, but typically by instantiating Trajectories
     //  (2) model uses Control info to determine how to compute IK (to fit inner joints based on end-effector chains)
     //  (3) model updates TF, CoM, CoP and dynamics
     Limbs limbs_;
-
-
-
-
-protected:
-    void publish();
-    void publish_control_state(const robotik::State& current, const robotik::State& target, rclcpp::Time now, std::string prefix="");
-    void publish_diagnostics();
-
-    robotik::Model::SharedPtr model_;
-
-    State::SharedPtr target;
-
-    struct {
-        robotik::State::SharedPtr state;
-    } current;
 
     rclcpp::Time lastControlUpdate;
 
@@ -138,8 +151,7 @@ protected:
     robotik::JointStateListener::SharedPtr joint_state_listener;
     robotik::ModelStateListener::SharedPtr model_state_listener;
 
-    rclcpp::TimerBase::SharedPtr update_timer_;
-    rclcpp::TimerBase::SharedPtr diag_timer_;
+    rclcpp::TimerBase::SharedPtr update_timer_, progress_timer_, preview_timer_, publish_state_timer_, diag_timer_;
 
     lifecycle_msgs::srv::ChangeState::Request::SharedPtr change_state_request_;
     rclcpp::Client<lifecycle_msgs::srv::ChangeState>::SharedPtr change_state_client_;
@@ -149,7 +161,6 @@ protected:
     rclcpp::node_interfaces::OnSetParametersCallbackHandle::SharedPtr old_parameter_set_callback;
     rcl_interfaces::msg::SetParametersResult parameter_set_callback(const std::vector<rclcpp::Parameter> & param);
 
-    tf2_ros::Buffer tfBuffer;
     rclcpp::Subscription<tf2_msgs::msg::TFMessage>::SharedPtr subscription_tf_;
     rclcpp::Subscription<tf2_msgs::msg::TFMessage>::SharedPtr subscription_tf_static_;
     void tf_callback(tf2_msgs::msg::TFMessage::SharedPtr msg, bool is_static);        // callback
