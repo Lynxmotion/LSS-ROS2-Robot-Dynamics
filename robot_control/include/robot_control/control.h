@@ -7,6 +7,7 @@
 
 #include "types.h"
 #include "state.h"
+#include "trajectory/action.h"
 
 #include <robot_control/trajectory.h>
 
@@ -70,8 +71,7 @@ public:
     //        Control is basically the user-program, it updates feet/arm TF, but typically by instantiating Trajectories
     //  (2) model uses Control info to determine how to compute IK (to fit inner joints based on end-effector chains)
     //  (3) model updates TF, CoM, CoP and dynamics
-
-    bool executeTrajectory;
+    Limbs limbs_;
 
 protected:
     rclcpp::Time
@@ -79,6 +79,9 @@ protected:
         last_static_publish_target;
 
     Kinematics kinematics;
+
+    // list of actions being performed on the robot limbs/effectors
+    trajectory::Actions actions;
 
     trajectory::Expression expression_from_msg(
             robot_model_msgs::msg::SegmentTrajectory msg,

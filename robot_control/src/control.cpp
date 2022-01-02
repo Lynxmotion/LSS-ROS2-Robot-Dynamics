@@ -11,6 +11,7 @@
 #include <kdl/velocityprofile_rect.hpp>
 #include <kdl/velocityprofile_spline.hpp>
 #include <kdl/trajectory_segment.hpp>
+#include <robot_control/trajectory/environment.h>
 
 
 namespace robotik {
@@ -22,6 +23,13 @@ Control::Control()
 
 void Control::activate(Model::SharedPtr model, rclcpp_lifecycle::LifecycleNode& node) {
     model_ = model;
+
+    // begin with the limbs loaded by the model
+    limbs_.clear();
+    limbs_.reserve(model_->limbs.size());
+    for(auto& limb: model_->limbs) {
+        limbs_.emplace_back(limb);
+    }
 
     kinematics.activate(model_);
 
@@ -124,46 +132,86 @@ void Control::set_joint_controller_active(bool active)
     }
 }
 
-bool Control::renderTrajectory(const State&, rclcpp::Time) {
-    trajectory->render();
-    if(trajectory->state != trajectory::Rendered) {
-        RCLCPP_ERROR(get_logger(), "trajectory could not be rendered");
-        return false;
-    } else {
-        printf("new trajectory rendered\n");
-        return true;
-    }
-}
-
-void Control::print_debug(const char* label, const State& state) {
-    size_t ln = 0;
-    for(auto& limb: model_->limbs) {
-        // get a limb request if it exists
-        Limb::State req;
-        if(ln < state.limbs.size())
-            req = state.limbs[ln];
-        else {
-            req.limbType = limb->options_.model;
-            req.mode = (req.limbType == Limb::Leg) ? Limb::Holding : Limb::Limp;
-        }
-
-        auto mode = model_->getLimbMode(ln, state);
-        if(mode != Limb::Limp) {
-            KDL::Frame baseTF, limbTF;
-            if (/*req.mode != Limb::Limp &&*/ state.findTF(limb->options_.from_link, baseTF) &&
-                                              state.findTF(limb->options_.to_link, limbTF)) {
-                if (mode == Limb::Seeking) {
-                    std::cout << label << ": " << limb->options_.to_link << " = " << req.position << std::endl;
-                }
-            }
-        }
-        ln++;
-    }
-}
-
 void Control::resetTarget(const State& current) {
     target = std::make_shared<robotik::State>(current);
 }
+
+void Control::resetTrajectory() {
+    for(auto& action: actions) {
+        action->complete(limbs_, *model_, lastUpdate, robot_model_msgs::msg::TrajectoryComplete::RESET );
+    }
+}
+
+
+class TrajectoryRenderEnv : public trajectory::RenderingInterface
+{
+public:
+    inline TrajectoryRenderEnv()
+    : model(nullptr), state(nullptr)
+    {}
+
+    virtual ~TrajectoryRenderEnv() {}
+
+    Model* model;
+    const State* state;
+
+    KDL::Frame get_relative_frame(const FrameRef& ref, double /* at_timestamp*/) override
+    {
+        assert(model != nullptr);
+        std::cout << "Request for relative frame " << ref.typeName() << ":" << ref.name << std::endl;
+#if 0       // todo: revive the get_relative_frame check for segment ref from trajectory
+        Limb* limb = nullptr;
+        if(ref.type == FrameRef::Segment) {
+            auto timeline = traj->timeline.find(ref.name);
+            if(timeline == traj->timeline.end()) {
+                // check to see if the segment is part of a limb
+                for(auto& l: model->limbs) {
+                    if (std::find(l->segment_names.begin(), l->segment_names.end(), ref.name) != l->segment_names.end()) {
+                        // found in this limb, check to see if this limb is controlled in this trajectory
+                        timeline = traj->timeline.find(l->options_.to_link);
+                        if(timeline == traj->timeline.end())
+                            timeline = traj->timeline.find(l->options_.from_link);
+                        // for any inner/dependent segment we must compute IK
+                        if(timeline != traj->timeline.end()) {
+                            limb = l.get();
+                        }
+                    }
+                }
+            }
+
+            if(timeline != traj->timeline.end()) {
+                // pull the state of the segment from the timeline
+                KDL::Frame f;
+                // todo: WE HAVE TO GET STATE FOR FROM AND TO LINK!!
+                if(timeline->second.get_state(at_timestamp, f)) {
+                    std::cout << "  fetched segment state for " << ref.name << " from timline" << std::endl;
+                    State st(*state);
+                    if(limb && limb->updateIK(st, f)>0) {
+                        //model->compute_TF_CoM(st, *limb);
+                        model->compute_TF_CoM(st);
+                    }
+                    return model->getRelativeFrame(ref, st);
+                }
+            }
+        }
+#endif
+        // reference is not dependant on trajectory/timeline state
+        return model->getRelativeFrame(ref, *state);
+    }
+
+    KDL::Frame convert_frame(FrameRef from_ref, KDL::Frame frame_in, FrameRef to_ref) override
+    {
+        if(from_ref.type != FrameRef::Odometry) {
+            auto odom_from = model->getRelativeFrame(from_ref, *state);
+            frame_in = odom_from * frame_in;
+        }
+        if(to_ref.type != FrameRef::Odometry) {
+            auto odom_to = model->getRelativeFrame(to_ref, *state);
+            frame_in = odom_to.Inverse() * frame_in;
+        }
+        return frame_in;
+    }
+};
 
 
 ///@brief Update any required trajectories based on current state
@@ -171,6 +219,8 @@ void Control::resetTarget(const State& current) {
 ///@returns the expected state at this moment in time.
 bool Control::update(const State& current, rclcpp::Time _now) {
     if(active) {
+        double now_ts = _now.seconds();
+
         if(!target) {
             resetTarget(current);
             if(!target)
@@ -189,7 +239,19 @@ bool Control::update(const State& current, rclcpp::Time _now) {
             return false;
         }
 
-#if 0
+        KDL::Frame target_base_tf;
+        if(!target->findTF(model_->base_link, target_base_tf)) {
+            RCLCPP_WARN_ONCE(get_logger(), "failed to publish control state because target state contains no base_link");
+            return false;
+        }
+
+#if 1
+        // todo: update Kinematics to have changes in base instead do changes in limbs
+        // for now, copy just the base position from current to target
+        target_base_tf.p = current_base_tf.p;
+        target->tf[model_->base_link] = target_base_tf;
+
+#else
         // todo: track changes in state's odom => base_link frame, and apply those changes to
         //       our target state as an offset. We can't just copy it like odom because we also
         //       want to manipulate the base frame.
@@ -201,37 +263,81 @@ bool Control::update(const State& current, rclcpp::Time _now) {
                 target->tf[model_->base_link] = base_tf;
         }
 #endif
-        bool trajectoryPreview = !executeTrajectory;
 
         double seconds_since_last_update = (lastUpdate.get_clock_type() == RCL_ROS_TIME)
                 ? (_now - lastUpdate).seconds()
                 : INFINITY;
 
-        // update limbs based on their control mode
-        for(short i=0; i < (short)target->limbs.size(); i++) {
-            auto& st_limb = target->limbs[i];
-            auto& model_limb = model_->limbs[i];
+        TrajectoryRenderEnv* rendering_env = nullptr;
 
-            auto l_name =  model_->limbs[i]->options_.to_link;
+        //
+        // Update limbs using any active trajectory actions
+        //
+        std::vector<trajectory::Actions::const_iterator> expired;
+        for(auto a=actions.begin(), _a=actions.end(); a!=_a; a++) {
+            auto& action = *a;
+            trajectory::TimeRange tr = action->time_range();
+            if(now_ts < tr.begin)
+                continue;
+
+            if(action->render_state() != trajectory::Rendered) {
+                // this action must be rendered now
+                if(!rendering_env) {
+                    // create the rendering environment
+                    rendering_env = new TrajectoryRenderEnv();
+                    rendering_env->model = &*model_;
+                    rendering_env->state = &current;
+                }
+
+                action->render(limbs_, *model_, *rendering_env);
+
+                // since we rendered, get the updated time range
+                tr = action->time_range();
+                std::cout << "rendered range is " << std::fixed << std::setprecision(4) << tr << std::endl;
+
+            }
+
+            // apply the action to the limb state
+            action->apply(limbs_, *model_, now_ts);
+
+            // if this action has expired, remove it
+            if(now_ts > tr.end) {
+                action->complete(limbs_, *model_, _now);
+                expired.emplace_back(a);
+            }
+        }
+
+        // free rendering interface if we created one
+        delete rendering_env;
+
+        // todo: update base (as an effector)
+
+        //
+        // update target state using control state from the limbs
+        //
+        for(auto& limb: limbs_) {
+            auto l_name =  limb.model->options_.to_link;
 
             KDL::Frame current_limb_tf;
             if(current.findTF(l_name, current_limb_tf)) {
                 // make limb_tf relative to robot body
                 current_limb_tf = current_base_tf.Inverse() * current_limb_tf;
                 if(seconds_since_last_update < 10.0) {
-                    KDL::Vector delta_p = diff(current_limb_tf.p, st_limb.position.p, seconds_since_last_update);
-                    KDL::Vector delta_r = diff(current_limb_tf.M, st_limb.position.M, seconds_since_last_update);
-                    st_limb.velocity.vel = delta_p;
-                    st_limb.velocity.rot = delta_r;
+                    KDL::Vector delta_p = diff(current_limb_tf.p, limb.position.p, seconds_since_last_update);
+                    KDL::Vector delta_r = diff(current_limb_tf.M, limb.position.M, seconds_since_last_update);
+                    limb.velocity.vel = delta_p;
+                    limb.velocity.rot = delta_r;
                 }
-                st_limb.position = current_limb_tf;
+                limb.position = current_limb_tf;
             }
 
-            if(st_limb.mode == Limb::Limp) {
+            if(limb.mode == Limb::Limp) {
                 // this limb is not under control,
                 // we will not do any Inverse Kinematics and
                 // simply copy state from current
-                for(auto& j_name: model_limb->joint_names) {
+                limb.target = limb.position;
+
+                for(auto& j_name: limb.model->joint_names) {
                     auto j_index = target->findJoint(j_name);
                     if(j_index >= 0) {
                         target->position(j_index) = current.position(j_index);
@@ -249,19 +355,29 @@ bool Control::update(const State& current, rclcpp::Time _now) {
 
 #endif
                 kinematics.invalidate(l_name, LimbKinematics::JOINTS);
-            } else if(st_limb.mode >= Limb::Holding) {
+            } else if(limb.mode == Limb::Holding) {
                 // We want to maintain position so we should not copy from current,
                 // nor perform any inverse kinematics as joint info should not change
                 // tldr; do nothing
-            } else if(st_limb.mode >= Limb::Seeking) {
+            } else if(limb.mode >= Limb::Seeking) {
                 // perform inverse kinematics based on Limb targets
-                kinematics.moveEffector(*target, l_name, st_limb.position);
+                auto target_tf = target_base_tf * limb.target;
+                kinematics.moveEffector(*target, l_name, target_tf);
+            }
+        }
+
+        // erase expired actions
+        if(!expired.empty()) {
+            // erase from end to beginning so our expired iterators are not invalidated as we erase
+            for(auto a=expired.rbegin(), _a=expired.rend(); a!=_a; a++) {
+                actions.erase(*a);
             }
         }
 
         lastUpdate = _now;
 
 
+#if 0
         // animate the current trajectory
         if(trajectory) {
 
@@ -370,22 +486,16 @@ bool Control::update(const State& current, rclcpp::Time _now) {
 #endif
             }
         }
+
 abort_trajectory:
+#endif
+
 
 
         // update state of target
         // todo: this should be done after target is updated
         kinematics.updateState(*target);
 
-        //model_->updateContacts(*target);
-        //model_->updateDynamics(*target);
-
-#if 0
-        if(lastUpdate.seconds() < 0.05) {
-            //std::cout << "target:   B.fp:" << fp_base_target.z() << "  S.fp:" << fp_sole_target.z() << "  B:" << base_target.z() << "  S:" << sole_target.z() << std::endl;
-            std::cout << " n:" << current.tf.size() << "   tgt-base:" << target_base_location << " state-xform: " << current.transform.p << std::endl;
-        }
-#endif
         return true;
     }
     return false;
@@ -393,7 +503,7 @@ abort_trajectory:
 
 bool Control::publish_control() {
     // execute the trajectory
-    if(executeTrajectory && target) {
+    if(target) {
         auto& trajstate = *target;
         if (trajstate.joints.size() != (size_t) trajstate.position.rows()) {
             RCLCPP_INFO(get_logger(),
@@ -536,15 +646,17 @@ trajectory::Expression Control::expression_from_msg(
     return tf;
 }
 
-void Control::trajectory_callback(robot_model_msgs::msg::MultiSegmentTrajectory::SharedPtr msg)
+void Control::trajectory_callback(robot_model_msgs::msg::MultiSegmentTrajectory::SharedPtr)
 {
+    // todo: disabled for now, possibly we could create an action that doesnt have a GoalHandle so it just completes silently
+#if 0
     // set the absolute time
     rclcpp::Time now;
     if(msg->header.stamp.sec) {
         now = rclcpp::Time(msg->header.stamp);
     } else {
         RCLCPP_WARN_ONCE(get_logger(), "trajectory publisher is not setting header timestamp");
-        now = lastTrajectoryUpdate;
+        now = lastUpdate;
     }
 
     if(msg->mode == robot_model_msgs::msg::MultiSegmentTrajectory::REPLACE_ALL) {
@@ -573,9 +685,9 @@ void Control::trajectory_callback(robot_model_msgs::msg::MultiSegmentTrajectory:
     }
 
     //renderTrajectory(*trajectoryState, now);
+#endif
 }
 
-#ifdef TRAJECTORY_ACTION_SERVER
 rclcpp_action::GoalResponse Control::handle_trajectory_goal(
         const rclcpp_action::GoalUUID & uuid,
         std::shared_ptr<const trajectory::EffectorTrajectory::Goal> goal)
@@ -603,6 +715,13 @@ rclcpp_action::CancelResponse Control::handle_trajectory_cancel(
 {
     auto& request = goal_handle->get_goal()->goal;
     RCLCPP_INFO(this->get_logger(), "Received request to cancel goal for segment %s", request.segment.segment.c_str());
+
+    actions.complete(
+            request.segment.segment,
+            limbs_,
+            *model_,
+            lastUpdate,
+            robot_model_msgs::msg::TrajectoryComplete::CANCELLED);
     return rclcpp_action::CancelResponse::ACCEPT;
 }
 
@@ -616,18 +735,22 @@ void Control::handle_trajectory_accepted(const std::shared_ptr<trajectory::GoalH
         now = rclcpp::Time(request.header.stamp);
     } else {
         RCLCPP_WARN_ONCE(get_logger(), "trajectory publisher is not setting header timestamp");
-        now = lastTrajectoryUpdate;
-    }
-
-    if(!trajectory) {
-        trajectory = std::make_shared<robotik::Trajectory>(model_);
-        trajectory->setInitialState(*target);
+        now = lastUpdate;
     }
 
     auto expr = expression_from_msg(request.segment, model_->odom_link, now);
-    trajectory->add_expression(expr, goal_handle);
-    //renderTrajectory(*trajectoryState, now);
+
+    // cancel any existing actions for this segment
+    actions.complete(
+            expr.segment,
+            limbs_,
+            *model_,
+            lastUpdate,
+            robot_model_msgs::msg::TrajectoryComplete::PREEMPTED);
+
+
+    // add the new action
+    actions.append(std::make_shared<trajectory::Action>(expr, goal_handle));
 }
-#endif
 
 } // ns::robot

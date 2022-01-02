@@ -337,8 +337,6 @@ void set_effector_msg(robot_model_msgs::msg::EffectorState& effector, const KDL:
 
 void Control::publish_control_state(const robotik::State& current, const robotik::State& target, rclcpp::Time now, std::string prefix)
 {
-    bool controlling = true;
-
     if(!control_state_msg_ || !control_state_pub_->is_activated())
         return;
 
@@ -357,13 +355,12 @@ void Control::publish_control_state(const robotik::State& current, const robotik
 
     KDL::Frame target_base_tf;
     if(target.findTF(model_->base_link, target_base_tf)) {
-        controlling = false;
         set_effector_msg(control_state_msg_->base, current_base_tf, target_base_tf);
     } else
         set_effector_msg(control_state_msg_->base, current_base_tf);
 
 
-    auto limb_count = (short)current.limbs.size();
+    auto limb_count = (short)this->current.control->limbs_.size();
 
     // figure out what limbs are supporting
     std::vector<bool> supporting(limb_count, false);
@@ -377,13 +374,19 @@ void Control::publish_control_state(const robotik::State& current, const robotik
         control_state_msg_->limbs.resize(limb_count);
     for(short i=0; i < limb_count; i++) {
         auto& ml = control_state_msg_->limbs[i];
-        auto& sl = current.limbs[i];
+        auto& sl = this->current.control->limbs_[i];
         ml.name = model_->limbs[i]->options_.to_link;
         ml.mode = sl.mode;
         ml.type = sl.limbType;
         ml.supportive = sl.supportive;
         ml.supporting = supporting[i];
 
+#if 1
+        if(sl.mode != robotik::Limb::Limp)
+            set_effector_msg(ml.effector, sl.position, sl.target);
+        else
+            set_effector_msg(ml.effector, sl.position);
+#else
         kdl_frame_to_pose(sl.position, ml.effector.pose);
         // todo: add velocity to model state
         //ml.velocity = tf2::toMsg(tf2::Stamped(sl.velocity, model_state_msg_->header.stamp, model_state_msg_->header.frame_id));
@@ -405,6 +408,7 @@ void Control::publish_control_state(const robotik::State& current, const robotik
             set_effector_msg(ml.effector, current_limb_tf, target_limb_tf);
         } else
             set_effector_msg(ml.effector, current_limb_tf);
+#endif
     }
 
     control_state_pub_->publish(*control_state_msg_);
