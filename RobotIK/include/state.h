@@ -122,28 +122,6 @@ public:
 };
 
 
-class LimbState {
-public:
-    ///@brief Capture the intention of each limb
-    std::vector<Limb::State> limbs;
-
-    LimbState();
-
-    ///@brief Construct the list of limbs with default states using the collection of limb definitions in the given model.
-    /// Non-supportive limbs such as arms are set to limp. Legs are set to be supportive but are cleared of any
-    /// target TF.
-    explicit LimbState(const Model& model);
-
-    ///@brief Keeps the list of limbs but sets the intention of each limb to defaults
-    /// This essentially reverts the LimbState to the model-limbs constructor state. Non-supportive limbs such as arms
-    /// are set to limp. Legs are set to be supportive but are cleared of an target TF.
-    virtual void zero();
-
-    ///@brief update the list of limbs by pulling limb information from the model
-    virtual void updateFromModel(const Model& model);
-};
-
-
 class SegmentState {
 public:
     SegmentState();
@@ -267,7 +245,7 @@ public:
 };
 
 
-class State : public StateFrame, public JointAndSegmentState, public LimbState, public SupportState {
+class State : public StateFrame, public JointAndSegmentState, public SupportState {
 public:
     using SharedPtr = std::shared_ptr<State>;
 

@@ -30,7 +30,7 @@ State::State()
 }
 
 State::State(const State& copy)
-    : StateFrame(copy), JointAndSegmentState(copy), LimbState(copy), SupportState(copy), type(copy.type)
+    : StateFrame(copy), JointAndSegmentState(copy), SupportState(copy), type(copy.type)
 {
     // clearing updated fields since we've taken a copy we expect all
     // joints and segments return to unupdated state
@@ -38,7 +38,7 @@ State::State(const State& copy)
 }
 
 State::State(Model& model)
-    : JointAndSegmentState(model), LimbState(model), type(MeasuredState)
+    : JointAndSegmentState(model), type(MeasuredState)
 {
 }
 
@@ -100,7 +100,6 @@ std::string JointState::toXmlString(std::string&& stateName, std::string&& group
 void State::zero() {
     JointState::zero();
     SegmentState::zero();
-    LimbState::zero();
     SupportState::zero();
 }
 
@@ -164,37 +163,6 @@ bool SegmentState::findTF(const std::string& _name, KDL::Frame& frame) const {
         return true;
     }
     return false;
-}
-
-
-LimbState::LimbState()
-{
-}
-
-LimbState::LimbState(const Model& model) {
-    updateFromModel(model);
-}
-
-void LimbState::updateFromModel(const Model& model)
-{
-    // ensure we have the same number of limbs
-    limbs.reserve(model.limbs.size());
-    for(auto& l: model.limbs) {
-        auto isLeg = l->options_.model == robotik::Limb::Leg;
-        limbs.emplace_back(
-                l->options_.model,
-                Limb::Limp,
-                isLeg);
-    }
-}
-
-void LimbState::zero()
-{
-    for(auto& limb: limbs) {
-        limb.mode = (limb.limbType == Limb::Leg) ? Limb::Holding : Limb::Limp;
-        limb.position = KDL::Frame();
-        limb.velocity = KDL::Twist();
-    }
 }
 
 
