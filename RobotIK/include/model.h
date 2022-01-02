@@ -137,7 +137,7 @@ namespace robotik {
         std::string interactingSegment;
 
         std::shared_ptr<KDL::Tree> tree_;
-        std::vector<robotik::Limb::SharedPtr> limbs;
+        LimbModels limbs;
 
     protected:
         bool use_tf_static_;

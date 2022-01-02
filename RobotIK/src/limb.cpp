@@ -349,10 +349,40 @@ Limb::State::State()
 {
 }
 
-Limb::State::State(DynamicModelType _limbType, Mode _mode, bool _supportive)
-: mode(_mode), limbType(_limbType), supportive(_supportive), supporting(false)
+Limb::State::State(Limb::SharedPtr _model, Mode _mode)
+: model(_model), mode(_mode), limbType(_model->options_.model), supportive(_model->options_.model == Leg), supporting(false)
 {
 }
 
+Limb::State::State(Limb::SharedPtr _model, Mode _mode, bool _supportive)
+: model(_model), mode(_mode), limbType(_model->options_.model), supportive(_supportive), supporting(false)
+{
+}
+
+
+void Limbs::zero()
+{
+    for(auto& limb: *this) {
+        limb.mode = (limb.limbType == Limb::Leg) ? Limb::Holding : Limb::Limp;
+        limb.position = KDL::Frame();
+        limb.velocity = KDL::Twist();
+        limb.target = KDL::Frame();
+    }
+}
+
+Limbs Limbs::fromModel(const Model& model)
+{
+    Limbs limbs;
+    // ensure we have the same number of limbs
+    limbs.reserve(model.limbs.size());
+    for(auto& l: model.limbs) {
+        auto isLeg = l->options_.model == robotik::Limb::Leg;
+        limbs.emplace_back(
+                l,
+                Limb::Limp,
+                isLeg);
+    }
+    return limbs;
+}
 
 } // ns::robot

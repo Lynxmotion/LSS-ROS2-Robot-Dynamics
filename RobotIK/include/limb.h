@@ -13,6 +13,7 @@ namespace robotik {
 
 class JointAndSegmentState;
 class JointState;
+class Model;
 
 class Limb {
 public:
@@ -51,6 +52,10 @@ public:
     ///@brief Indicates how a limb should be used
     class State {
     public:
+        using SharedPtr = std::shared_ptr<State>;
+
+        Limb::SharedPtr model;
+
         ///@brief What control mode this end-effector is currently in
         Mode mode;
 
@@ -73,8 +78,14 @@ public:
         ///@brief Current velocity of this end effector if it is moving
         KDL::Twist velocity;
 
+        ///@brief Target trajectory position of the end effector
+        /// This frame is relative to the limb base frame (usually the base link). This position is updated by
+        /// active trajectory actions.
+        KDL::Frame target;
+
         State();
-        State(DynamicModelType _limbType, Mode _mode, bool _supportive);
+        explicit State(Limb::SharedPtr model, Mode _mode = Limp);
+        explicit State(Limb::SharedPtr model, Mode _mode, bool _supportive);
     };
 
     explicit Limb(const Options& options);
@@ -126,5 +137,35 @@ protected:
     KDL::JntArray qdot;
     KDL::JntArray qdotdot;
 };
+
+class LimbModels : public std::vector<Limb::SharedPtr>
+{
+public:
+};
+
+class Limbs : public std::vector<Limb::State>
+{
+public:
+    using std::vector<Limb::State>::operator[];
+
+    inline Limb::State& operator[](const std::string& s) {
+        auto itr = std::find_if(begin(), end(), [&s](const Limb::State& l) { return l.model->options_.to_link == s; });
+        if(itr == end())
+            throw std::runtime_error("no limb by the name of " + s + " exists");
+        return *itr;
+    }
+
+    inline const Limb::State& operator[](const std::string& s) const {
+        auto itr = find_if(begin(), end(), [&s](const Limb::State& l) { return l.model->options_.to_link == s; });
+        if(itr == end())
+            throw std::runtime_error("no limb by the name of " + s + " exists");
+        return *itr;
+    }
+
+    void zero();
+
+    static Limbs fromModel(const Model& model);
+};
+
 
 } // ns::robotik
