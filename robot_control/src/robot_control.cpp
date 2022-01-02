@@ -291,6 +291,14 @@ void Control::updateRobotState()
     auto _now = now();
 
     try {
+        // ensure we are getting valid joint data
+        auto joint_age = _now - current.state->lastJointStateUpdate;
+        if(joint_age.seconds() > 5.0) {
+            // stale joint data
+            RCLCPP_WARN_THROTTLE(get_logger(), *get_clock(), 5, "joint state data is stale, disabling robot control!");
+            return;
+        }
+
 
         // if we dont get the segment state from /tf and /tf_static we can
         // compute it using our model information
