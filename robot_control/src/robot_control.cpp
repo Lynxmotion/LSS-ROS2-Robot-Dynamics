@@ -44,8 +44,7 @@ Control::Control(const rclcpp::NodeOptions & options)
 Control::Control(
         const std::string & node_name,
         const rclcpp::NodeOptions & options
-) : rclcpp_lifecycle::LifecycleNode(node_name, options),
-    efforts_updated(false)
+) : rclcpp_lifecycle::LifecycleNode(node_name, options)
 {
     declare_parameter("frequency", rclcpp::ParameterValue(10.0f));
     declare_parameter("progress_frequency", rclcpp::ParameterValue(5.0f));
@@ -118,7 +117,7 @@ void Control::robot_description_callback(std_msgs::msg::String::SharedPtr msg)
   model_state_listener->state(current);
 
   // todo: is there a way we can exctract this from the URDF or SRDF?
-  set_joints(get_parameter("joint_names").get_value<std::vector<std::string>>());
+  joint_control_publisher->set_joints(get_parameter("joint_names").get_value<std::vector<std::string>>());
 
   // we can activate now if we havent already
   if (get_parameter("self_manage").get_value<bool>()) {
@@ -171,6 +170,17 @@ Control::on_configure(const rclcpp_lifecycle::State &)
         10,
         std::move(static_cb)
     );
+
+    // publisher for joint trajectory
+    auto joint_controller_name = get_parameter("joint_controller").get_value<std::string>();
+    auto effort_controller_name = has_parameter("effort_controller")
+            ? get_parameter("effort_controller").get_value<std::string>()
+            : "";
+
+    joint_control_publisher = std::make_shared<robotik::JointControlPublisher>(
+            *this,
+            joint_controller_name,
+            effort_controller_name);
 
     // extended joint compliance parameters
     control_state_pub_ = this->create_publisher<robot_model_msgs::msg::ControlState>(
@@ -235,14 +245,7 @@ Control::on_cleanup(const rclcpp_lifecycle::State &)
 
     model_->clear();
 
-    joint_trajectory_pub_->on_deactivate();
-    joint_trajectory_msg_.reset();
-    joint_trajectory_pub_.reset();
-
-    jointctrl_get_state_client_.reset();
-    jointctrl_change_state_client_.reset();
-    jointctrl_get_state_request_.reset();
-    jointctrl_change_state_request_.reset();
+    joint_control_publisher.reset();
 
     joint_state_listener.reset();
     model_state_listener.reset();
@@ -266,14 +269,7 @@ Control::on_shutdown(const rclcpp_lifecycle::State &)
 
     model_->clear();
 
-    joint_trajectory_pub_->on_deactivate();
-    joint_trajectory_msg_.reset();
-    joint_trajectory_pub_.reset();
-
-    jointctrl_get_state_client_.reset();
-    jointctrl_change_state_client_.reset();
-    jointctrl_get_state_request_.reset();
-    jointctrl_change_state_request_.reset();
+    joint_control_publisher.reset();
 
     joint_state_listener.reset();
     model_state_listener.reset();
@@ -312,48 +308,8 @@ Control::on_activate(const rclcpp_lifecycle::State &)
             std::bind(&Control::handle_trajectory_cancel, this, std::placeholders::_1),
             std::bind(&Control::handle_trajectory_accepted, this, std::placeholders::_1));
 
-    // publisher for joint trajectory
-    auto joint_controller_name = get_parameter("joint_controller").get_value<std::string>();
-    joint_trajectory_pub_ = create_publisher<trajectory_msgs::msg::JointTrajectory>(
-            "/"+joint_controller_name+"/joint_trajectory",
-            10);
 
-    // create a joint publisher, we'll control the servo output
-    if(!joint_trajectory_msg_)
-        joint_trajectory_msg_ = std::make_shared<trajectory_msgs::msg::JointTrajectory>();
-
-    // effort control
-    if(has_parameter("effort_controller")) {
-        auto effort_controller_name = get_parameter("effort_controller").get_value<std::string>();
-        joint_efforts_pub_ = create_publisher<std_msgs::msg::Float64MultiArray>(
-                effort_controller_name,
-                10);
-        if(!joint_efforts_msg_) {
-            joint_efforts_msg_ = std::make_shared<std_msgs::msg::Float64MultiArray>();
-            if(!joint_trajectory_msg_->joint_names.empty())
-                joint_efforts_msg_->data.resize(joint_trajectory_msg_->joint_names.size());
-        }
-    } else {
-        RCLCPP_WARN(get_logger(), "No effort_controller parameter specified so effort control will be disabled");
-    }
-
-    // ability to control state of the joint controller
-    // tutorial: https://github.com/ros2/demos/blob/master/lifecycle/src/lifecycle_service_client.cpp
-    jointctrl_change_state_request_ = std::make_shared<lifecycle_msgs::srv::ChangeState::Request>();
-    jointctrl_get_state_client_ = create_client<lifecycle_msgs::srv::GetState>(
-            joint_controller_name + "/get_state",
-            rmw_qos_profile_services_default,
-            nullptr);
-    jointctrl_change_state_client_ = create_client<lifecycle_msgs::srv::ChangeState>(
-            joint_controller_name + "/change_state",
-            rmw_qos_profile_services_default,
-            nullptr);
-
-    if(joint_trajectory_pub_)
-        joint_trajectory_pub_->on_activate();
-    if(joint_efforts_pub_)
-        joint_efforts_pub_->on_activate();
-
+    joint_control_publisher->on_activate();
     control_state_pub_->on_activate();
 
     return rv;
@@ -364,14 +320,7 @@ Control::on_deactivate(const rclcpp_lifecycle::State &)
 {
     RCLCPP_INFO(get_logger(), "deactivating robot control");
 
-    joint_trajectory_pub_->on_deactivate();
-    joint_trajectory_msg_.reset();
-    joint_trajectory_pub_.reset();
-
-    jointctrl_get_state_client_.reset();
-    jointctrl_change_state_client_.reset();
-    jointctrl_get_state_request_.reset();
-    jointctrl_change_state_request_.reset();
+    joint_control_publisher->on_deactivate();
 
     model_->on_deactivate();
     control_state_pub_->on_deactivate();
@@ -495,7 +444,7 @@ rcl_interfaces::msg::SetParametersResult Control::parameter_set_callback(const s
         //bool isNumber = p.get_type() == rclcpp::PARAMETER_DOUBLE || p.get_type() == rclcpp::PARAMETER_INTEGER;
 
         if(name == "joint_names") {
-            set_joints(p.get_value<std::vector<std::string>>());
+            joint_control_publisher->set_joints(p.get_value<std::vector<std::string>>());
         } else {
             auto res = rcl_interfaces::msg::SetParametersResult();
             res.set__successful(false);
@@ -583,14 +532,12 @@ void Control::control_update() try {
         // update the target state using the limb model
         if(current && update_target(*current, _now)) {
             // send target state to (typically) ros2 controls
-            publish_joint_control();
+            joint_control_publisher->publish();
         }
 
         // publish our control state if we don't have it setup on a dedicated timer
         if(!publish_state_timer_)
             publish_control_state();
-
-        lastControlUpdate = _now;
     }
 
 } catch (std::exception & e) {
@@ -626,34 +573,9 @@ void Control::publish_diagnostics() try {
  */
 
 
-void Control::set_joints(const std::vector<std::string> &joint_names)
-{
-    // new joint names for publishing
-    size_t N = joint_names.size();
-    if(!joint_trajectory_msg_)
-        joint_trajectory_msg_ = std::make_shared<trajectory_msgs::msg::JointTrajectory>();
-    joint_trajectory_msg_->joint_names = joint_names;
-
-    if(!joint_efforts_msg_)
-        joint_efforts_msg_ = std::make_shared<std_msgs::msg::Float64MultiArray>();
-    joint_efforts_msg_->data.resize(N);
-
-    joint_trajectory_index.resize(N);
-}
-
-void Control::set_joint_controller_active(bool active)
-{
-    if(active)  {
-        jointctrl_change_state_request_->transition.id = lifecycle_msgs::msg::Transition::TRANSITION_ACTIVATE;
-        jointctrl_change_state_future_ = jointctrl_change_state_client_->async_send_request(jointctrl_change_state_request_);
-    } else {
-        jointctrl_change_state_request_->transition.id = lifecycle_msgs::msg::Transition::TRANSITION_DEACTIVATE;
-        jointctrl_change_state_future_ = jointctrl_change_state_client_->async_send_request(jointctrl_change_state_request_);
-    }
-}
-
 void Control::resetTarget(const State& current) {
     target = std::make_shared<robotik::State>(current);
+    joint_control_publisher->state(target);
 }
 
 void Control::resetTrajectory() {
@@ -744,6 +666,7 @@ bool Control::update_target(const State& current, rclcpp::Time _now) {
         resetTarget(current);
         if(!target)
             // failed to establish target state from current
+            RCLCPP_WARN_THROTTLE(get_logger(), *get_clock(), 5,  "failed to reset target state from current");
             return false;
     }
 
@@ -902,80 +825,6 @@ bool Control::update_target(const State& current, rclcpp::Time _now) {
     return true;
 }
 
-bool Control::publish_joint_control() {
-    // execute the trajectory
-    if(!target)
-        return false;
-
-    auto& trajstate = *target;
-    if (trajstate.joints.size() != (size_t) trajstate.position.rows()) {
-        RCLCPP_INFO(get_logger(),
-                    "refuse to publish when joint names and positions arrays are not equal length");
-        return false;
-    }
-
-    // todo: publishing joints order should match Q_NR joint order
-    if (joint_trajectory_msg_->joint_names.empty()) {
-        set_joints(trajstate.joints);
-    } else {
-        // there should be no case where these arent equal
-        assert(joint_trajectory_index.size() == joint_trajectory_msg_->joint_names.size());
-    }
-
-    bool allow_publish = true;
-    auto nj = joint_trajectory_msg_->joint_names.size();
-
-    // allocate a single trajectory keyframe
-    if (joint_trajectory_msg_->points.size() != 1) {
-        joint_trajectory_msg_->points.resize(1);
-    }
-
-    // set the trajectory
-    auto &points = joint_trajectory_msg_->points[0];
-    if (points.positions.size() != nj)
-        points.positions.resize(nj);
-
-    for (size_t j = 0, _j = nj; j != _j; j++) {
-        // lookup joint position using index
-        auto j_idx = joint_trajectory_index[j];
-        auto j_name = joint_trajectory_msg_->joint_names[j];
-
-        // verify index is correct, if not make a correction
-        if(trajstate.joints[j_idx] != j_name) {
-            // find it the long way
-            auto j_itr = std::find(trajstate.joints.begin(), trajstate.joints.end(), j_name);
-            if (j_itr != trajstate.joints.end()) {
-                j_idx = joint_trajectory_index[j] = (j_itr - trajstate.joints.begin());
-            } else {
-                // joint name was not found, this is a trajic error
-                RCLCPP_ERROR_STREAM_ONCE(get_logger(), "cannot publish joint "
-                << j_name << " because it is not found in state");
-                allow_publish = false;
-            }
-        }
-
-        // add the joint position
-        points.positions[j] = trajstate.position(j_idx);
-        // todo: publish velocity and acceleration for trajectories
-    }
-
-    // publish new control values
-    if(allow_publish)
-        joint_trajectory_pub_->publish(*joint_trajectory_msg_);
-
-    if(efforts_updated)
-        publish_efforts();
-
-    return true;
-}
-
-void Control::publish_efforts() {
-    if(joint_efforts_pub_) {
-        joint_efforts_pub_->publish(*joint_efforts_msg_);
-        efforts_updated = false;
-    }
-}
-
 
 void Control::publish_preview() try
 {
@@ -1115,9 +964,8 @@ void Control::handle_trajectory_accepted(const std::shared_ptr<trajectory::GoalH
             expr.segment,
             limbs_,
             *model_,
-            lastUpdate,
+            now,
             robot_model_msgs::msg::TrajectoryComplete::PREEMPTED);
-
 
     // add the new action
     actions.append(std::make_shared<trajectory::Action>(expr, goal_handle));
