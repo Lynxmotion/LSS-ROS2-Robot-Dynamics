@@ -724,8 +724,15 @@ to become standalone nodes which can run on a desktop alongside RViz.
 - Control and Trajectory could be refactored out too. I think Control+Trajectory should be together
 - Control publishes LimbState not Dynamics
 - Control can then just merge into it's main component
+              Contact State
+- We can move the limb/effector/segment contact sense into it's own component
+- It receives dynamics state from robot_dynamics, determines if contacts occur
+- publishes ContactState
+- robot_dynamics can subscribe to ContactState and update the robot body (also fuse with IMU)
+- outsourcing contact detection means user can replace or enhance contact detection themselves
               Trajectory
 "The existing trajectory module will either be Awesome! or a complicated mess"
+    ## It was a mess, I got rid of it in favor of simple actions ##
 - Possibly the trajectory could just be a simple singleton spline
    * Why predict trajectory path 2 - 5 seconds in the future?
    * The humanoid/hexapod node can constantly send updates so it doesnt need to track planned vs state divergence
@@ -752,16 +759,90 @@ to become standalone nodes which can run on a desktop alongside RViz.
 - Create new C++ project that subscribes to published states and  visualizes on RViz2
 
 
+# CURRENT ISSUE
+* Execute mode wont work
+    - add leg origin option to limbs  (actually we dont need this to specify coordinates)
+    - add polar coordinates mode   (only does x,y so z remains in rectangular space)
+
+
+# TRAJECTORY ACTION SERVICES
+we could have a single limb action and coordinated (multiple) limb actions. We should create action service classes for each type just like we do
+for listeners and broadcasters since each action service class type requires custom action messages for goal, progress and result. However they
+must add into a single Action list since new actions must cancel any pre-existing limb operations.
+    * Will the main Control class or Action service classes do the pre-existing search and cancel behavior? (I would rather Control class do it)
+    * First implement a single limb action service, keeping existing action service code in Control for now (Get the basic working)
+## NOTES
+- Relook at robot_control::publish_control_state (it might be wrong, especially the body effector)
+## Finalize TODO
+- In dynamics, maybe add floor/contact delta to odom instead of body, thus in control we take odom straight from current state
+    - for now, binding position only on target to current
+- add reset action to cancel out all active actions
+- Implement body/base effector(s)?
+- Implement limb relative origin?
+    - if so, then make the action messages progress transform relative to the origin
+- add an action for setting limb to limp
+
+- Make more listeners or broadcasters out of robot_control and control (to simplify combining these classes)
+- Combine robot_control and control into one class?
+- Determine abstract interface for Action, Actions class must use only this interface
+- Refactor the single action service into a class
+    - Control should now use this class and contain very little service code
+    - Control::update() uses actions list to update target state
+    - Control::update() checks for expired actions and sends completion
+    - Control::publish_progress() on a timer sends progress updates for all actions in the list (this may be set slower than normal update rate)
+- Add a coordinated action service
+- Topic for setting compliance, force or rigidity
+    - I think just a topic for these limb properties, possibly Control just subscribes to the ros2_controls interfaces to intercept any updates
 
 # REFACTOR NOTES
-* get rid of Limb::updateIK() in favor of Kinematics class that caches IK q variables
+* Add properties to ModelState
+    - odometry => world frame
+    - base_pose has odometry - could maybe seperate out into odom and body_orientation
+* Add properties to ControlState
+    - origin option to Control per limb?  it would be set via SRDF
+    - this is where programmable coordinate frames would be nice
+* Limbs should be read in from URDF/SRDF into Model, but copied to state/control during activation and used from there, no more model access needed
+    - but limbs are a shared ptr from Model
+    - more limbs can be created or disabled at runtime
 * implement the following missing parts:
-	- LimbState::velocity
-	- Contact::slippage - whatever this is supposed to be..a metric og how likely a limb will slip? or a measure of how much it has slipped?
+    - LimbState::velocity
+    - Contact::slippage - whatever this is supposed to be..a metric og how likely a limb will slip? or a measure of how much it has slipped?
 * I am subscribing and using /tf, and I am computing FK for segments...provide a parameter to choose one (may still want to get world/odom frame)
+    - can't really use TF topic to populate state segments since TF frames are relative to each parent
 * mode_state frame_id should not be odom, but probably blank (unless preview, etc)
 * limb state frames are relative to base, but limb::updateIK new_effector_pose is relative to odom (and it is changing to base rel internally)
-	- I added an argument to determine if its in odom frame (defaults to false, rel to body)
+    - I added an argument to determine if its in odom frame (defaults to false, rel to body)
+
+terminate called after throwing an instance of 'rclcpp::exceptions::RCLError'
+  what():  goal_handle attempted invalid transition from state EXECUTING with event CANCELED, at /tmp/binarydeb/ros-galactic-rcl-action-3.1.2/src/rcl_action/goal_handle.c:95
+
+
+
+# Webots Simulation TODO
+* Correct collision models
+    - simplify models
+    - correct coordinates
+* check/verify inertia and mass parameters
+* configure launch file and config for Webots
+* implement ros2_controls controllers config_and_start in launch
+* implement Sim Reset functionality
+
+## Webots Questions
+* how does the webots_ros2_driver and webots_ros2_control nodes work?
+
+
+# Robot HAT
+- Compute Module 4
+- Battery charger
+- Teensy-like ARM32
+  - Fan PWM?
+- CPLD
+  - Serial port MUX between RPi, Teensy and LSS bus ports
+  - RPi power button mgmt
+  - OLED 0.96
+- 4PPoE/PPOE++  (up to 95W, 48v)
+  - https://www.newegg.com/p/1B4-08DB-000N7
+
 
 # CONTROL ALGORITHM
 There is confusion between target state and limb state/request - er, whatever. Also target and thus trajectory get's out of sync with sensed
@@ -783,12 +864,6 @@ is synced with sensed state.
 
 
 
-
-RobotDynamics - senses joint and IMU/etc state and calculates model state like forces, floor contact, etc
-Trajectory/Control - high level control of robot limbs, outputs to joints
-Manipulation, Calibration, Visualization - these 3 nodes can be used for Rviz control/configure user interface
-
-
 # SCHOOL DEMO
 - Finish walking algorithm
 - Remove reliance on Desktop
@@ -798,10 +873,14 @@ Manipulation, Calibration, Visualization - these 3 nodes can be used for Rviz co
 
 
 # LSS ROS2 Repos
+RobotDynamics - senses joint and IMU/etc state and calculates model state like forces, floor contact, etc
+Trajectory/Control - high level control of robot limbs, outputs to joints
+Manipulation, Calibration, Visualization - these 3 nodes can be used for Rviz control/configure user interface
 - LSS-ROS2-Hardware
 - LSS-ROS2-Robot-Dynamics
 - LSS-ROS2-Hexapod
 - LSS-ROS2-Humanoid
+
 
 ros2 launch lss_hexapod hexapod.launch.py | grep -v "Invalid frame" | grep -v "buffer_core"
 
@@ -833,6 +912,7 @@ ros2 launch lss_hexapod hexapod.launch.py | grep -v "Invalid frame" | grep -v "b
 * Get rid of ENABLE_JOINT_STATE_PUBLISHER, its deprecated, pre-ros2-controls
 * Add Trajectory::offset_time(ts) to move all keyframes by ts amount. Then Trajectory::rebase_time(ts)
     that uses offset_time and the min keyframe ts - basically to restart preview animation from now.
+* get rid of Limb::updateIK() in favor of Kinematics class that caches IK q variables
 
 
 
@@ -867,6 +947,8 @@ points:
     time_from_start:
       sec: 0
       nanosec: 0"
+
+
 
 ## ROS World
 - Reflexxes Type II in Velocity mode works well for smoothing streaming commands
