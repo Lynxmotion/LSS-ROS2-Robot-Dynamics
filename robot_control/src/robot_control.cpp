@@ -100,7 +100,6 @@ void Control::robot_description_callback(std_msgs::msg::String::SharedPtr msg)
   /// configure dynamics for new model
   ///
   current.control = std::make_shared<robotik::Control>();
-  current.control->executeTrajectory = true;
 
   current.state = std::make_shared<robotik::State>(*model_);
 
@@ -480,14 +479,8 @@ void Control::publish() try {
         publish_control_state(*current.state, *current.control->getTargetState(), _now);
         lastControlUpdate = _now;
 
-        auto traj_preview = current.control->getTrajectoryPreviewState();
-        if(traj_preview)
-            publish_control_state(*traj_preview, *traj_preview, _now, "preview");
-
-
         // todo: setup a timer to publish preview less often as control
         current.control->publish_target_preview(_now);
-        current.control->publish_trajectory_preview(_now);
     }
 
 } catch (std::exception & e) {

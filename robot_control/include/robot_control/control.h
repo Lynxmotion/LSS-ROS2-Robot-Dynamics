@@ -20,8 +20,6 @@
 #include <trajectory_msgs/msg/joint_trajectory_point.hpp>
 
 
-#define TRAJECTORY_ACTION_SERVER
-
 namespace robotik {
 
 #define PUBLISH_STATIC_TF_EVERY   5.0    // seconds
@@ -31,29 +29,11 @@ public:
     using SharedPtr = std::shared_ptr<Control>;
 
     bool active;
-    bool override;
-
-    // if 0 or greater, then restart preview time given seconds after end of trajectory,
-    // if negative then don't loop, the preview will stay active at the last position until cancelled
-    double loopPreviewDelay;
-    bool loopPreview;
 
     Model::SharedPtr model_;
     State::SharedPtr target;
 
-    std::string publisher_prefix_;
-    std::string control_namespace_;
-    std::string preview_namespace_;
-
-    ///@brief the composite trajectory of active end-effectors
-    Trajectory::SharedPtr trajectory;
-
-    Control(std::string publisher_prefix = DEFAULT_COMPONENT_TOPIC_PREFIX,
-            std::string control_namespace = "target",
-            std::string preview_namespace = "preview");
-
-    [[nodiscard]] inline std::string control_namespace() const { return control_namespace_; }
-    [[nodiscard]] inline std::string preview_namespace() const { return preview_namespace_; }
+    Control();
 
     void activate(Model::SharedPtr model, rclcpp_lifecycle::LifecycleNode& node);
     void deactivate();
@@ -67,8 +47,6 @@ public:
 
     void publish_efforts();
 
-    void publish_trajectory_preview(const rclcpp::Time& now, std::string prefix = "preview");
-
     void publish_target_preview(const rclcpp::Time& now, std::string prefix = "target");
 
     void resetTarget(const State& current);
@@ -76,18 +54,11 @@ public:
 
     ///@brief return the desired state according to any active trajectories
     inline State::SharedPtr getTargetState() const { return target; }
-    inline State::SharedPtr getTrajectoryPreviewState() const { return executeTrajectory ? nullptr : trajectoryState; }
 
     inline const ModelInterface& getModelInterface() const { return *model_; }
     inline ModelInterface& getModelInterface() { return *model_; }
 
     void set_joint_controller_active(bool active = true);
-
-    ///@brief Add a trajectory
-    void addTrajectory(Trajectory& traj) {
-        // todo: control should compose trajectories not replace them
-        trajectory = std::make_shared<Trajectory>(traj);
-    }
 
     //@brief Render a trajectory request into segment path splines
     bool renderTrajectory(const State& initial_state, rclcpp::Time _now);
@@ -103,13 +74,9 @@ public:
     bool executeTrajectory;
 
 protected:
-    State::SharedPtr trajectoryState;
-
     rclcpp::Time
         lastUpdate,
-        lastTrajectoryUpdate,
-        last_static_publish_target,
-        last_static_publish_trajectory;
+        last_static_publish_target;
 
     Kinematics kinematics;
 
@@ -131,10 +98,6 @@ protected:
     rclcpp_lifecycle::LifecyclePublisher<std_msgs::msg::Float64MultiArray>::SharedPtr joint_efforts_pub_;
     bool efforts_updated;
 
-#ifndef TRAJECTORY_ACTION_SERVER
-    robot_model_msgs::msg::MultiTrajectoryProgress::SharedPtr progress_msg_;
-    rclcpp_lifecycle::LifecyclePublisher<robot_model_msgs::msg::MultiTrajectoryProgress>::SharedPtr progress_pub_;
-#else
     // trajectory progress publisher
     rclcpp_action::Server<trajectory::EffectorTrajectory>::SharedPtr trajectory_action_server_;
     rclcpp_action::GoalResponse handle_trajectory_goal(
@@ -143,7 +106,6 @@ protected:
     rclcpp_action::CancelResponse handle_trajectory_cancel(
             const std::shared_ptr<trajectory::GoalHandle> goal_handle);
     void handle_trajectory_accepted(const std::shared_ptr<trajectory::GoalHandle> goal_handle);
-#endif
 
     // stores offset into state joint position to joint names in joint_trajectory_msg_ collection.
     // index is still verified each use in case joint index position has moved
@@ -157,8 +119,6 @@ protected:
     rclcpp::Client<lifecycle_msgs::srv::ChangeState>::SharedPtr jointctrl_change_state_client_;
     rclcpp::Client<lifecycle_msgs::srv::GetState>::SharedFuture jointctrl_get_state_future_;
     rclcpp::Client<lifecycle_msgs::srv::ChangeState>::SharedFuture jointctrl_change_state_future_;
-
-    void print_debug(const char* label, const State& state);
 
     ///@brief Publish a state object's TF and ModelState for previewing
     /// Used to publish either target state or trajectory preview state.

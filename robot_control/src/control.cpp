@@ -15,10 +15,8 @@
 
 namespace robotik {
 
-Control::Control(std::string publisher_prefix, std::string control_namespace, std::string preview_namespace)
-: active(false), override(false), loopPreviewDelay(4.0), loopPreview(true), publisher_prefix_(publisher_prefix),
-  control_namespace_(std::move(control_namespace)), preview_namespace_(std::move(preview_namespace)),
-  efforts_updated(false)
+Control::Control()
+: active(false), efforts_updated(false)
 {}
 
 
@@ -33,16 +31,6 @@ void Control::activate(Model::SharedPtr model, rclcpp_lifecycle::LifecycleNode& 
             std::bind(&Control::trajectory_callback, this, std::placeholders::_1)
     );
 
-#ifndef TRAJECTORY_ACTION_SERVER
-    // publisher for trajectory progress
-    progress_pub_ = node.create_publisher<robot_model_msgs::msg::MultiTrajectoryProgress>(
-            "~/trajectory/progress",
-            10);
-
-    if(!progress_msg_)
-        progress_msg_ = std::make_shared<robot_model_msgs::msg::MultiTrajectoryProgress>();
-    progress_pub_->on_activate();
-#else
     // Trajectory Action Server
     this->trajectory_action_server_ = rclcpp_action::create_server<trajectory::EffectorTrajectory>(
             &node,
@@ -50,7 +38,6 @@ void Control::activate(Model::SharedPtr model, rclcpp_lifecycle::LifecycleNode& 
             std::bind(&Control::handle_trajectory_goal, this, std::placeholders::_1, std::placeholders::_2),
             std::bind(&Control::handle_trajectory_cancel, this, std::placeholders::_1),
             std::bind(&Control::handle_trajectory_accepted, this, std::placeholders::_1));
-#endif
 
     // publisher for joint trajectory
     auto joint_controller_name = node.get_parameter("joint_controller").get_value<std::string>();
@@ -178,10 +165,6 @@ void Control::resetTarget(const State& current) {
     target = std::make_shared<robotik::State>(current);
 }
 
-void Control::resetTrajectory() {
-    trajectory.reset();
-    trajectoryState.reset();
-}
 
 ///@brief Update any required trajectories based on current state
 /// Apply trajectories to state
@@ -482,12 +465,6 @@ void Control::publish_efforts() {
     }
 }
 
-void Control::publish_trajectory_preview(const rclcpp::Time& now, std::string prefix)
-{
-    // if we are executing the trajectory, then the target state will be visualized later
-    if(!executeTrajectory && trajectoryState)
-        return publish_preview_state(*trajectoryState, prefix, now, last_static_publish_trajectory);
-}
 
 void Control::publish_target_preview(const rclcpp::Time& now, std::string prefix)
 {
