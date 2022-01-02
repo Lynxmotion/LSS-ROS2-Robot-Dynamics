@@ -3,7 +3,8 @@
 
 #include <limits>
 #include <algorithm>
-#include <math.h>
+#include <iostream>
+#include <cmath>
 
 #include <vector>
 
@@ -319,6 +320,13 @@ typename range_t<T>::list operator|(const typename range_t<T>::list& lhs, const 
 			i++,j++;
 	}
 	return out;
+}
+
+template<class T>
+std::ostream & operator << (std::ostream &out, const range_t<T> &range)
+{
+    out << '[' << range.begin << ", " << range.end << ']';
+    return out;
 }
 
 // standard int range types
