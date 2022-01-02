@@ -10,7 +10,7 @@
 
 #include <sensor_msgs/msg/joint_state.hpp>
 #include <state.h>
-
+#include <indexes.h>
 
 namespace robotik {
 
@@ -35,6 +35,9 @@ protected:
 
     // todo: support dynamic_joint_state control_msgs?
     rclcpp::Subscription<sensor_msgs::msg::JointState>::SharedPtr joint_state_subscription_;
+
+    // lookup the joint index in state using the index
+    JointStateOrdinalMap joint_ordinal_map;
 
     void joint_states_callback(const sensor_msgs::msg::JointState::SharedPtr msg);
 };

@@ -49,14 +49,21 @@ void JointStateListener::joint_states_callback(const sensor_msgs::msg::JointStat
     auto velocities = msg->velocity.size();
     auto efforts = msg->effort.size();
 
+    // ensure our index is at least as big as the message
+    if(msg->name.size() > joint_ordinal_map.size())
+        joint_ordinal_map.resize(msg->name.size());
+
     unsigned int mask =
             (positions ? robotik::POSITION : 0) |
             (velocities ? robotik::VELOCITY : 0) |
             (efforts ? robotik::EFFORT : 0);
-    // todo: can we speed up the update of joints in the state from the joint_state messages? (using an index?)
+
+    // ensure we have the necessary state PVE arrays allocated
+    state_->alloc(mask);
+
     for(size_t i=0, _i=msg->name.size(); i<_i; i++) {
-        auto n = msg->name[i];
-        auto jp = state_->addJoint(n, mask);
+        auto joint_name = msg->name[i];
+        auto jp = joint_ordinal_map.resolve_or_insert(*state_, i, joint_name, mask);
         if(jp >= 0) {
             state_->joints_updated[jp] = true;
             state_->position(jp) = (i < positions) ? msg->position[i] : 0;
