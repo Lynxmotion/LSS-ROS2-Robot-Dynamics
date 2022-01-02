@@ -302,8 +302,9 @@ void Control::updateRobotState()
 
         // if we dont get the segment state from /tf and /tf_static we can
         // compute it using our model information
-        // if (model_->compute_TF_CoM(*current.state)) {
-        // }
+        if (!model_->compute_TF_CoM(*current.state)) {
+            RCLCPP_WARN_THROTTLE(get_logger(), *get_clock(), 5, "failed to compute segment TF data for current state");
+        }
 
         current.state->lastSegmentStateUpdate = _now;
 
@@ -433,8 +434,6 @@ void Control::tf_callback(tf2_msgs::msg::TFMessage::SharedPtr msg, bool /* is_st
     int updates = 0;
     builtin_interfaces::msg::Time now;
     if(model_ && current.state) {
-        auto segments = model_->tree_->getSegments();
-
         for (auto i = 0u; i < msg->transforms.size(); i++) {
             auto& tfx = msg->transforms[i];
             auto frame_id = tfx.child_frame_id;
@@ -454,7 +453,12 @@ void Control::tf_callback(tf2_msgs::msg::TFMessage::SharedPtr msg, bool /* is_st
 #endif
             }
 
-            current.state->tf[frame_id] = tf2::transformToKDL(tfx);
+            // todo: we are limiting to only receiving world and odom coordinates for now
+            //      because the segment transforms are relative to each links parent and not
+            //      odom frame like our State is...so this is pretty useless to us unless we
+            //      integrate into the model tree or change the way our State works
+            if(frame_id == "world" || frame_id == model_->odom_link || frame_id == model_->base_link)
+                current.state->tf[frame_id] = tf2::transformToKDL(tfx);
             updates++;
         }
 
