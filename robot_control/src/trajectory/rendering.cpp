@@ -26,8 +26,7 @@
 
 using namespace std;
 
-namespace robotik {
-namespace trajectory {
+namespace robotik::trajectory {
 
 RenderedSegment::RenderedSegment(): duration(0.0)
 {
@@ -326,5 +325,4 @@ KDL::Trajectory* RenderedSegment::Clone() const{
     return comp;
 }
 
-} // ns:trajectory
 } // ns:robotik
