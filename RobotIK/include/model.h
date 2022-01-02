@@ -101,18 +101,6 @@ namespace robotik {
         ///@brief Return the robot orientation relative to the given reference frame
         EulerRotation getRobotRPY(State& state, std::string _ref_frame);
 
-        ///@brief Compute a state with the robot in balance
-        /// Given an input (current) state, use the dynamics information to determine a goal state where the robot
-        /// is in support (balanced). It will use the ContactState data to determine which limbs are in contact and
-        /// can be used for balance support.
-        void balance(State& state);
-
-        ///@brief Compute a state with the robot in balance
-        /// Given an input (current) state, use the dynamics information to determine a goal state where the robot
-        /// is in support (balanced). You must supply the limb ordinal values (as they are ordered in model::limbs)
-        /// to specify which limbs are in contact.
-        //void balance(State& state, const SupportState& contacts);
-
         ///@brief Get all the names of joints in the model
         const Names& getJoints() const { return joints_; }
 
