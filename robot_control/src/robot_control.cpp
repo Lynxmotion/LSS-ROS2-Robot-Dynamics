@@ -179,7 +179,7 @@ Control::on_configure(const rclcpp_lifecycle::State &)
 
     // extended joint compliance parameters
     control_state_pub_ = this->create_publisher<robot_model_msgs::msg::ControlState>(
-            "robot_dynamics/control_state",
+            "~/control_state",
             10);
     control_state_msg_ = std::make_shared<robot_model_msgs::msg::ControlState>();
 
