@@ -45,7 +45,7 @@ Control::Control(
         const std::string & node_name,
         const rclcpp::NodeOptions & options
 ) : rclcpp_lifecycle::LifecycleNode(node_name, options),
-    tfBuffer(get_clock())
+    tfBuffer(get_clock()), efforts_updated(false)
 {
     tfBuffer.setUsingDedicatedThread(true);
 
@@ -99,8 +99,6 @@ void Control::robot_description_callback(std_msgs::msg::String::SharedPtr msg)
   ///
   /// configure dynamics for new model
   ///
-  current.control = std::make_shared<robotik::Control>();
-
   current.state = std::make_shared<robotik::State>(*model_);
 
   // start listening for joint state updates
@@ -119,8 +117,7 @@ void Control::robot_description_callback(std_msgs::msg::String::SharedPtr msg)
   model_state_listener->state(current.state);
 
   // todo: is there a way we can exctract this from the URDF or SRDF?
-  current.control->set_joints(
-          get_parameter("joint_names").get_value<std::vector<std::string>>());
+  set_joints(get_parameter("joint_names").get_value<std::vector<std::string>>());
 
   // we can activate now if we havent already
   if (get_parameter("self_manage").get_value<bool>()) {
@@ -133,7 +130,7 @@ void Control::robot_description_callback(std_msgs::msg::String::SharedPtr msg)
 rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn
 Control::on_configure(const rclcpp_lifecycle::State &)
 {
-    RCLCPP_INFO(get_logger(), "configuring robot dynamics");
+    RCLCPP_INFO(get_logger(), "configuring robot control");
 
     //tf_listener = std::make_shared<tf2_ros::TransformListener>(tfBuffer, true);
     //tf_listener = std::make_shared<tf2_ros::TransformListener>(tfBuffer, shared_from_this(), false, 10, 10);
@@ -184,7 +181,7 @@ Control::on_configure(const rclcpp_lifecycle::State &)
     control_state_msg_ = std::make_shared<robot_model_msgs::msg::ControlState>();
 
     auto frequency = get_parameter("frequency").get_value<float>();
-    RCLCPP_INFO(get_logger(), "robot dynamics set to %4.2fhz", frequency);
+    RCLCPP_INFO(get_logger(), "robot control set to %4.2fhz", frequency);
     update_timer_ = create_wall_timer(
             std::chrono::duration_cast<std::chrono::nanoseconds>(
                     std::chrono::duration<double>(1.0 / frequency)),
@@ -207,8 +204,16 @@ Control::on_cleanup(const rclcpp_lifecycle::State &)
     update_timer_.reset();
     diag_timer_.reset();
 
-    current.control->deactivate();
     model_->clear();
+
+    joint_trajectory_pub_->on_deactivate();
+    joint_trajectory_msg_.reset();
+    joint_trajectory_pub_.reset();
+
+    jointctrl_get_state_client_.reset();
+    jointctrl_change_state_client_.reset();
+    jointctrl_get_state_request_.reset();
+    jointctrl_change_state_request_.reset();
 
     joint_state_listener.reset();
     model_state_listener.reset();
@@ -225,13 +230,21 @@ Control::on_cleanup(const rclcpp_lifecycle::State &)
 rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn
 Control::on_shutdown(const rclcpp_lifecycle::State &)
 {
-    RCLCPP_INFO(get_logger(), "shutting down robot dynamics");
+    RCLCPP_INFO(get_logger(), "shutting down robot control");
 
     update_timer_.reset();
     diag_timer_.reset();
 
-    current.control->deactivate();
     model_->clear();
+
+    joint_trajectory_pub_->on_deactivate();
+    joint_trajectory_msg_.reset();
+    joint_trajectory_pub_.reset();
+
+    jointctrl_get_state_client_.reset();
+    jointctrl_change_state_client_.reset();
+    jointctrl_get_state_request_.reset();
+    jointctrl_change_state_request_.reset();
 
     joint_state_listener.reset();
     model_state_listener.reset();
@@ -248,12 +261,69 @@ Control::on_shutdown(const rclcpp_lifecycle::State &)
 rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn
 Control::on_activate(const rclcpp_lifecycle::State &)
 {
-    RCLCPP_INFO(get_logger(), "activating robot dynamics");
+    RCLCPP_INFO(get_logger(), "activating robot control");
     CallbackReturn rv = CallbackReturn::SUCCESS;
 
     model_->on_activate(*this);
 
-    current.control->activate(model_, *this);
+    // begin with the limbs loaded by the model
+    limbs_.clear();
+    limbs_.reserve(model_->limbs.size());
+    for(auto& limb: model_->limbs) {
+        limbs_.emplace_back(limb);
+    }
+
+    kinematics.activate(model_);
+
+    // Trajectory Action Server
+    this->trajectory_action_server_ = rclcpp_action::create_server<trajectory::EffectorTrajectory>(
+            this,
+            "~/trajectory",
+            std::bind(&Control::handle_trajectory_goal, this, std::placeholders::_1, std::placeholders::_2),
+            std::bind(&Control::handle_trajectory_cancel, this, std::placeholders::_1),
+            std::bind(&Control::handle_trajectory_accepted, this, std::placeholders::_1));
+
+    // publisher for joint trajectory
+    auto joint_controller_name = get_parameter("joint_controller").get_value<std::string>();
+    joint_trajectory_pub_ = create_publisher<trajectory_msgs::msg::JointTrajectory>(
+            "/"+joint_controller_name+"/joint_trajectory",
+            10);
+
+    // create a joint publisher, we'll control the servo output
+    if(!joint_trajectory_msg_)
+        joint_trajectory_msg_ = std::make_shared<trajectory_msgs::msg::JointTrajectory>();
+
+    // effort control
+    if(has_parameter("effort_controller")) {
+        auto effort_controller_name = get_parameter("effort_controller").get_value<std::string>();
+        joint_efforts_pub_ = create_publisher<std_msgs::msg::Float64MultiArray>(
+                effort_controller_name,
+                10);
+        if(!joint_efforts_msg_) {
+            joint_efforts_msg_ = std::make_shared<std_msgs::msg::Float64MultiArray>();
+            if(!joint_trajectory_msg_->joint_names.empty())
+                joint_efforts_msg_->data.resize(joint_trajectory_msg_->joint_names.size());
+        }
+    } else {
+        RCLCPP_WARN(get_logger(), "No effort_controller parameter specified so effort control will be disabled");
+    }
+
+    // ability to control state of the joint controller
+    // tutorial: https://github.com/ros2/demos/blob/master/lifecycle/src/lifecycle_service_client.cpp
+    jointctrl_change_state_request_ = std::make_shared<lifecycle_msgs::srv::ChangeState::Request>();
+    jointctrl_get_state_client_ = create_client<lifecycle_msgs::srv::GetState>(
+            joint_controller_name + "/get_state",
+            rmw_qos_profile_services_default,
+            nullptr);
+    jointctrl_change_state_client_ = create_client<lifecycle_msgs::srv::ChangeState>(
+            joint_controller_name + "/change_state",
+            rmw_qos_profile_services_default,
+            nullptr);
+
+    if(joint_trajectory_pub_)
+        joint_trajectory_pub_->on_activate();
+    if(joint_efforts_pub_)
+        joint_efforts_pub_->on_activate();
 
     control_state_pub_->on_activate();
 
@@ -263,9 +333,17 @@ Control::on_activate(const rclcpp_lifecycle::State &)
 rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn
 Control::on_deactivate(const rclcpp_lifecycle::State &)
 {
-    RCLCPP_INFO(get_logger(), "deactivating robot dynamics");
+    RCLCPP_INFO(get_logger(), "deactivating robot control");
 
-    current.control->deactivate();
+    joint_trajectory_pub_->on_deactivate();
+    joint_trajectory_msg_.reset();
+    joint_trajectory_pub_.reset();
+
+    jointctrl_get_state_client_.reset();
+    jointctrl_change_state_client_.reset();
+    jointctrl_get_state_request_.reset();
+    jointctrl_change_state_request_.reset();
+
     model_->on_deactivate();
     control_state_pub_->on_deactivate();
 
@@ -275,7 +353,7 @@ Control::on_deactivate(const rclcpp_lifecycle::State &)
 rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn
 Control::on_error(const rclcpp_lifecycle::State &)
 {
-    RCLCPP_INFO(get_logger(), "robot dynamics has entered error state");
+    RCLCPP_INFO(get_logger(), "robot control has entered error state");
 
     if (get_parameter("self_manage").get_value<bool>()) {
         RCLCPP_INFO(get_logger(), "Self-transitioning to INACTIVE");
@@ -308,9 +386,9 @@ void Control::updateRobotState()
 
         current.state->lastSegmentStateUpdate = _now;
 
-        if(current.state && current.control->update(*current.state, _now)) {
+        if(current.state && update_target(*current.state, _now)) {
             // send target state to (typically) ros2 controls
-            current.control->publish_control();
+            publish_control();
         }
     } catch(robotik::Exception& e) {
         RCLCPP_INFO(get_logger(), e.what());
@@ -360,7 +438,7 @@ void Control::publish_control_state(const robotik::State& current, const robotik
         set_effector_msg(control_state_msg_->base, current_base_tf);
 
 
-    auto limb_count = (short)this->current.control->limbs_.size();
+    auto limb_count = (short)limbs_.size();
 
     // figure out what limbs are supporting
     std::vector<bool> supporting(limb_count, false);
@@ -374,7 +452,7 @@ void Control::publish_control_state(const robotik::State& current, const robotik
         control_state_msg_->limbs.resize(limb_count);
     for(short i=0; i < limb_count; i++) {
         auto& ml = control_state_msg_->limbs[i];
-        auto& sl = this->current.control->limbs_[i];
+        auto& sl = limbs_[i];
         ml.name = model_->limbs[i]->options_.to_link;
         ml.mode = sl.mode;
         ml.type = sl.limbType;
@@ -420,7 +498,7 @@ rcl_interfaces::msg::SetParametersResult Control::parameter_set_callback(const s
         //bool isNumber = p.get_type() == rclcpp::PARAMETER_DOUBLE || p.get_type() == rclcpp::PARAMETER_INTEGER;
 
         if(name == "joint_names") {
-            current.control->set_joints(p.get_value<std::vector<std::string>>());
+            set_joints(p.get_value<std::vector<std::string>>());
         } else {
             auto res = rcl_interfaces::msg::SetParametersResult();
             res.set__successful(false);
@@ -492,11 +570,11 @@ void Control::publish() try {
 
         updateRobotState();
 
-        publish_control_state(*current.state, *current.control->getTargetState(), _now);
+        publish_control_state(*current.state, *target, _now);
         lastControlUpdate = _now;
 
         // todo: setup a timer to publish preview less often as control
-        current.control->publish_target_preview(_now);
+        publish_target_preview(_now);
     }
 
 } catch (std::exception & e) {
@@ -510,6 +588,501 @@ void Control::publish_diagnostics() try {
     RCLCPP_ERROR(get_logger(), "Failed to poll and publish data: %s", e.what());
     deactivate();
 }
+
+
+
+/*
+ * Integration of old Control class here
+ */
+
+
+void Control::set_joints(const std::vector<std::string> &joint_names)
+{
+    // new joint names for publishing
+    size_t N = joint_names.size();
+    if(!joint_trajectory_msg_)
+        joint_trajectory_msg_ = std::make_shared<trajectory_msgs::msg::JointTrajectory>();
+    joint_trajectory_msg_->joint_names = joint_names;
+
+    if(!joint_efforts_msg_)
+        joint_efforts_msg_ = std::make_shared<std_msgs::msg::Float64MultiArray>();
+    joint_efforts_msg_->data.resize(N);
+
+    joint_trajectory_index.resize(N);
+}
+
+void Control::set_joint_controller_active(bool active)
+{
+    if(active)  {
+        jointctrl_change_state_request_->transition.id = lifecycle_msgs::msg::Transition::TRANSITION_ACTIVATE;
+        jointctrl_change_state_future_ = jointctrl_change_state_client_->async_send_request(jointctrl_change_state_request_);
+    } else {
+        jointctrl_change_state_request_->transition.id = lifecycle_msgs::msg::Transition::TRANSITION_DEACTIVATE;
+        jointctrl_change_state_future_ = jointctrl_change_state_client_->async_send_request(jointctrl_change_state_request_);
+    }
+}
+
+void Control::resetTarget(const State& current) {
+    target = std::make_shared<robotik::State>(current);
+}
+
+void Control::resetTrajectory() {
+    for(auto& action: actions) {
+        action->complete(limbs_, *model_, lastUpdate, robot_model_msgs::msg::TrajectoryComplete::RESET );
+    }
+}
+
+
+class TrajectoryRenderEnv : public trajectory::RenderingInterface
+{
+public:
+    inline TrajectoryRenderEnv()
+    : model(nullptr), state(nullptr)
+    {}
+
+    virtual ~TrajectoryRenderEnv() {}
+
+    Model* model;
+    const State* state;
+
+    KDL::Frame get_relative_frame(const FrameRef& ref, double /* at_timestamp*/) override
+    {
+        assert(model != nullptr);
+        std::cout << "Request for relative frame " << ref.typeName() << ":" << ref.name << std::endl;
+#if 0       // todo: revive the get_relative_frame check for segment ref from trajectory
+        Limb* limb = nullptr;
+        if(ref.type == FrameRef::Segment) {
+            auto timeline = traj->timeline.find(ref.name);
+            if(timeline == traj->timeline.end()) {
+                // check to see if the segment is part of a limb
+                for(auto& l: model->limbs) {
+                    if (std::find(l->segment_names.begin(), l->segment_names.end(), ref.name) != l->segment_names.end()) {
+                        // found in this limb, check to see if this limb is controlled in this trajectory
+                        timeline = traj->timeline.find(l->options_.to_link);
+                        if(timeline == traj->timeline.end())
+                            timeline = traj->timeline.find(l->options_.from_link);
+                        // for any inner/dependent segment we must compute IK
+                        if(timeline != traj->timeline.end()) {
+                            limb = l.get();
+                        }
+                    }
+                }
+            }
+
+            if(timeline != traj->timeline.end()) {
+                // pull the state of the segment from the timeline
+                KDL::Frame f;
+                // todo: WE HAVE TO GET STATE FOR FROM AND TO LINK!!
+                if(timeline->second.get_state(at_timestamp, f)) {
+                    std::cout << "  fetched segment state for " << ref.name << " from timline" << std::endl;
+                    State st(*state);
+                    if(limb && limb->updateIK(st, f)>0) {
+                        //model->compute_TF_CoM(st, *limb);
+                        model->compute_TF_CoM(st);
+                    }
+                    return model->getRelativeFrame(ref, st);
+                }
+            }
+        }
+#endif
+        // reference is not dependant on trajectory/timeline state
+        return model->getRelativeFrame(ref, *state);
+    }
+
+    KDL::Frame convert_frame(FrameRef from_ref, KDL::Frame frame_in, FrameRef to_ref) override
+    {
+        if(from_ref.type != FrameRef::Odometry) {
+            auto odom_from = model->getRelativeFrame(from_ref, *state);
+            frame_in = odom_from * frame_in;
+        }
+        if(to_ref.type != FrameRef::Odometry) {
+            auto odom_to = model->getRelativeFrame(to_ref, *state);
+            frame_in = odom_to.Inverse() * frame_in;
+        }
+        return frame_in;
+    }
+};
+
+
+///@brief Update any required trajectories based on current state
+/// Apply trajectories to state
+///@returns the expected state at this moment in time.
+bool Control::update_target(const State& current, rclcpp::Time _now) {
+    double now_ts = _now.seconds();
+
+    if(!target) {
+        resetTarget(current);
+        if(!target)
+            // failed to establish target state from current
+            return false;
+    }
+
+    // always move the base of the target state to match the current base state
+    KDL::Frame odom_tf;
+    if(current.findTF(model_->odom_link, odom_tf))
+        target->tf[model_->odom_link] = odom_tf;
+
+    KDL::Frame current_base_tf;
+    if(!current.findTF(model_->base_link, current_base_tf)) {
+        RCLCPP_WARN_ONCE(get_logger(), "failed to publish control state because state contains no base_link");
+        return false;
+    }
+
+    KDL::Frame target_base_tf;
+    if(!target->findTF(model_->base_link, target_base_tf)) {
+        RCLCPP_WARN_ONCE(get_logger(), "failed to publish control state because target state contains no base_link");
+        return false;
+    }
+
+#if 1
+    // todo: update Kinematics to have changes in base instead do changes in limbs
+    // for now, copy just the base position from current to target
+    target_base_tf.p = current_base_tf.p;
+    target->tf[model_->base_link] = target_base_tf;
+
+#else
+    // todo: track changes in state's odom => base_link frame, and apply those changes to
+    //       our target state as an offset. We can't just copy it like odom because we also
+    //       want to manipulate the base frame.
+    if(model_->interactingSegment != model_->base_link) {
+        // as long as the user is not interacting with the base,
+        // copy the base from sensed to target
+        KDL::Frame base_tf;
+        if(current.findTF(model_->base_link, base_tf))
+            target->tf[model_->base_link] = base_tf;
+    }
+#endif
+
+    double seconds_since_last_update = (lastUpdate.get_clock_type() == RCL_ROS_TIME)
+            ? (_now - lastUpdate).seconds()
+            : INFINITY;
+
+    TrajectoryRenderEnv* rendering_env = nullptr;
+
+    //
+    // Update limbs using any active trajectory actions
+    //
+    std::vector<trajectory::Actions::const_iterator> expired;
+    for(auto a=actions.begin(), _a=actions.end(); a!=_a; a++) {
+        auto& action = *a;
+        trajectory::TimeRange tr = action->time_range();
+        if(now_ts < tr.begin)
+            continue;
+
+        if(action->render_state() != trajectory::Rendered) {
+            // this action must be rendered now
+            if(!rendering_env) {
+                // create the rendering environment
+                rendering_env = new TrajectoryRenderEnv();
+                rendering_env->model = &*model_;
+                rendering_env->state = &current;
+            }
+
+            action->render(limbs_, *model_, *rendering_env);
+
+            // since we rendered, get the updated time range
+            tr = action->time_range();
+            std::cout << "rendered range is " << std::fixed << std::setprecision(4) << tr << std::endl;
+
+        }
+
+        // apply the action to the limb state
+        action->apply(limbs_, *model_, now_ts);
+
+        // if this action has expired, remove it
+        if(now_ts > tr.end) {
+            action->complete(limbs_, *model_, _now);
+            expired.emplace_back(a);
+        }
+    }
+
+    // free rendering interface if we created one
+    delete rendering_env;
+
+    // todo: update base (as an effector)
+
+    //
+    // update target state using control state from the limbs
+    //
+    for(auto& limb: limbs_) {
+        auto l_name =  limb.model->options_.to_link;
+
+        KDL::Frame current_limb_tf;
+        if(current.findTF(l_name, current_limb_tf)) {
+            // make limb_tf relative to robot body
+            current_limb_tf = current_base_tf.Inverse() * current_limb_tf;
+            if(seconds_since_last_update < 10.0) {
+                KDL::Vector delta_p = diff(current_limb_tf.p, limb.position.p, seconds_since_last_update);
+                KDL::Vector delta_r = diff(current_limb_tf.M, limb.position.M, seconds_since_last_update);
+                limb.velocity.vel = delta_p;
+                limb.velocity.rot = delta_r;
+            }
+            limb.position = current_limb_tf;
+        }
+
+        if(limb.mode == Limb::Limp) {
+            // this limb is not under control,
+            // we will not do any Inverse Kinematics and
+            // simply copy state from current
+            limb.target = limb.position;
+
+            for(auto& j_name: limb.model->joint_names) {
+                auto j_index = target->findJoint(j_name);
+                if(j_index >= 0) {
+                    target->position(j_index) = current.position(j_index);
+                    target->velocity(j_index) = current.velocity(j_index);
+                    target->effort(j_index) = current.effort(j_index);
+                }
+            }
+
+#if 0
+            KDL::Frame f;
+            for(auto& s_name: model_limb->segment_names) {
+                if(current.findTF(s_name, f))
+                    target->tf[s_name] = f;
+            }
+
+#endif
+            kinematics.invalidate(l_name, LimbKinematics::JOINTS);
+        } else if(limb.mode == Limb::Holding) {
+            // We want to maintain position so we should not copy from current,
+            // nor perform any inverse kinematics as joint info should not change
+            // tldr; do nothing
+        } else if(limb.mode >= Limb::Seeking) {
+            // perform inverse kinematics based on Limb targets
+            auto target_tf = target_base_tf * limb.target;
+            kinematics.moveEffector(*target, l_name, target_tf);
+        }
+    }
+
+    // erase expired actions
+    if(!expired.empty()) {
+        // erase from end to beginning so our expired iterators are not invalidated as we erase
+        for(auto a=expired.rbegin(), _a=expired.rend(); a!=_a; a++) {
+            actions.erase(*a);
+        }
+    }
+
+    lastUpdate = _now;
+
+    // update state of target
+    // todo: this should be done after target is updated
+    kinematics.updateState(*target);
+
+    return true;
+}
+
+bool Control::publish_control() {
+    // execute the trajectory
+    if(target) {
+        auto& trajstate = *target;
+        if (trajstate.joints.size() != (size_t) trajstate.position.rows()) {
+            RCLCPP_INFO(get_logger(),
+                        "refuse to publish when joint names and positions arrays are not equal length");
+            return false;
+        }
+
+        // todo: publishing joints order should match Q_NR joint order
+        if (joint_trajectory_msg_->joint_names.empty()) {
+            set_joints(trajstate.joints);
+        } else {
+            // there should be no case where these arent equal
+            assert(joint_trajectory_index.size() == joint_trajectory_msg_->joint_names.size());
+        }
+
+        bool allow_publish = true;
+        auto nj = joint_trajectory_msg_->joint_names.size();
+
+        // allocate a single trajectory keyframe
+        if (joint_trajectory_msg_->points.size() != 1) {
+            joint_trajectory_msg_->points.resize(1);
+        }
+
+        // set the trajectory
+        auto &points = joint_trajectory_msg_->points[0];
+        if (points.positions.size() != nj)
+            points.positions.resize(nj);
+
+        for (size_t j = 0, _j = nj; j != _j; j++) {
+            // lookup joint position using index
+            auto j_idx = joint_trajectory_index[j];
+            auto j_name = joint_trajectory_msg_->joint_names[j];
+
+            // verify index is correct, if not make a correction
+            if(trajstate.joints[j_idx] != j_name) {
+                // find it the long way
+                auto j_itr = std::find(trajstate.joints.begin(), trajstate.joints.end(), j_name);
+                if (j_itr != trajstate.joints.end()) {
+                    j_idx = joint_trajectory_index[j] = (j_itr - trajstate.joints.begin());
+                } else {
+                    // joint name was not found, this is a trajic error
+                    RCLCPP_ERROR_STREAM_ONCE(get_logger(), "cannot publish joint "
+                    << j_name << " because it is not found in state");
+                    allow_publish = false;
+                }
+            }
+
+            // add the joint position
+            points.positions[j] = trajstate.position(j_idx);
+            // todo: publish velocity and acceleration for trajectories
+        }
+
+        // publish new control values
+        if(allow_publish)
+            joint_trajectory_pub_->publish(*joint_trajectory_msg_);
+
+        if(efforts_updated)
+            publish_efforts();
+
+        return true;
+    }
+    return false;
+}
+
+void Control::publish_efforts() {
+    if(joint_efforts_pub_) {
+        joint_efforts_pub_->publish(*joint_efforts_msg_);
+        efforts_updated = false;
+    }
+}
+
+
+void Control::publish_target_preview(const rclcpp::Time& now, std::string prefix)
+{
+    if(target)
+        return publish_preview_state(*target, prefix, now, last_static_publish_target);
+}
+
+void Control::publish_preview_state(const State& state, const std::string& prefix, const rclcpp::Time& now, rclcpp::Time& last_static_publish)
+{
+    // publish preview state to TF
+    model_->publishTransforms(state, now, prefix);
+
+    // publish static transform every few seconds
+    if(last_static_publish.get_clock_type() != RCL_ROS_TIME
+    || (now - last_static_publish).seconds() > PUBLISH_STATIC_TF_EVERY) {
+        model_->publishFixedTransforms(now, prefix);
+        last_static_publish = now;
+    }
+
+    // publish model state for trajectory preview
+    model_->publishModelState(state, now, prefix);
+}
+
+
+trajectory::Expression Control::expression_from_msg(
+        robot_model_msgs::msg::SegmentTrajectory seg,
+        std::string default_reference_frame,
+        const rclcpp::Time& now)
+{
+    trajectory::Expression tf;
+    auto ts = now.seconds() + (double)seg.start.sec + (double)seg.start.nanosec / 1e9;
+    tf.start = ts;
+    tf.duration = seg.duration;
+    tf.id = seg.id;
+    tf.segment = seg.segment;
+    tf.mix_mode = (trajectory::MixMode)seg.mix_mode;
+    tf.path_expression = seg.path;
+    vector_to_kdl_vector(seg.points, tf.points);
+    quat_to_kdl_rotation(seg.rotations, tf.rotations);
+
+    // calculate velocity/acceleration
+    // todo: figure out what the max joint vel/acc is
+    tf.velocity = std::min(seg.velocity, 1.0);
+    tf.acceleration = std::min(seg.acceleration, 4.0);
+
+    // create motion profile
+    // todo: if we use the same arg parser as path then vel/acc could be encoded here
+    tf.velocity_profile = trajectory::velocityProfileStringToEnum(seg.profile);
+    tf.coordinate_mode = (trajectory::CoordinateMode)seg.coordinate_mode;
+
+    if(seg.reference_frame.empty())
+        tf.reference_frame = FrameRef(FrameRef::Segment, std::move(default_reference_frame));
+    else
+        tf.reference_frame = FrameRef::parse(seg.reference_frame);
+
+    if(tf.reference_frame.name == model_->odom_link)
+        tf.reference_frame = FrameRef(FrameRef::Odometry, model_->odom_link);
+    else if(tf.reference_frame.name == model_->base_link)
+        tf.reference_frame = FrameRef(FrameRef::Robot, model_->base_link);
+    else if(tf.reference_frame.name == "world")
+        tf.reference_frame = FrameRef(FrameRef::World);
+
+    // if the name of our reference frame is blank, fill it with the default
+    if (tf.reference_frame.type == FrameRef::Segment && tf.reference_frame.name.empty())
+        tf.reference_frame.name = seg.segment;
+    //else if (tf.reference_frame.type == FrameRef::Joint) {
+    //    model_.
+    //}
+    return tf;
+}
+
+rclcpp_action::GoalResponse Control::handle_trajectory_goal(
+        const rclcpp_action::GoalUUID & uuid,
+        std::shared_ptr<const trajectory::EffectorTrajectory::Goal> goal)
+{
+    //RCLCPP_INFO(this->get_logger(), "Received goal request with order %d", goal->order);
+    (void)uuid;
+    auto& request = goal->goal;
+
+    if(!target) {
+        RCLCPP_INFO(this->get_logger(), "Cannot accept trajectory goals without an existing state");
+        return rclcpp_action::GoalResponse::REJECT; // no segment by this name
+    }
+
+    KDL::Frame f;
+    if(!target->findTF(request.segment.segment, f)) {
+        RCLCPP_INFO(this->get_logger(), "Segment %s in goal request doesn't exist in state", request.segment.segment.c_str());
+        return rclcpp_action::GoalResponse::REJECT; // no segment by this name
+    }
+
+    return rclcpp_action::GoalResponse::ACCEPT_AND_EXECUTE;
+}
+
+rclcpp_action::CancelResponse Control::handle_trajectory_cancel(
+        const std::shared_ptr<trajectory::GoalHandle> goal_handle)
+{
+    auto& request = goal_handle->get_goal()->goal;
+    RCLCPP_INFO(this->get_logger(), "Received request to cancel goal for segment %s", request.segment.segment.c_str());
+
+    actions.complete(
+            request.segment.segment,
+            limbs_,
+            *model_,
+            lastUpdate,
+            robot_model_msgs::msg::TrajectoryComplete::CANCELLED);
+    return rclcpp_action::CancelResponse::ACCEPT;
+}
+
+void Control::handle_trajectory_accepted(const std::shared_ptr<trajectory::GoalHandle> goal_handle)
+{
+    auto& request = goal_handle->get_goal()->goal;
+
+    // set the absolute time
+    rclcpp::Time now;
+    if(request.header.stamp.sec) {
+        now = rclcpp::Time(request.header.stamp);
+    } else {
+        RCLCPP_WARN_ONCE(get_logger(), "trajectory publisher is not setting header timestamp");
+        now = lastUpdate;
+    }
+
+    auto expr = expression_from_msg(request.segment, model_->odom_link, now);
+
+    // cancel any existing actions for this segment
+    actions.complete(
+            expr.segment,
+            limbs_,
+            *model_,
+            lastUpdate,
+            robot_model_msgs::msg::TrajectoryComplete::PREEMPTED);
+
+
+    // add the new action
+    actions.append(std::make_shared<trajectory::Action>(expr, goal_handle));
+}
+
+
 
 }  //ns: robot_dynamics
 

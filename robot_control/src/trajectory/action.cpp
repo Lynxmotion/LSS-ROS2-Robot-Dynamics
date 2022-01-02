@@ -46,7 +46,7 @@ void Action::apply(Limbs& limbs, const Model&, double ts)
     std::cout << "    applied " << limb.model->options_.to_link << "    pos: " << ts << std::endl;
 }
 
-void Action::complete(Limbs& limbs, const Model&, const rclcpp::Time& now, int code)
+void Action::complete(Limbs& limbs, const Model&, const rclcpp::Time&, int code)
 {
     if(!goal_handle_)
         return;
