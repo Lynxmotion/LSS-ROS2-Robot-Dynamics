@@ -55,6 +55,7 @@ Control::Control(
 
     declare_parameter("joint_controller", rclcpp::ParameterValue("lss_joint_controller"));
     declare_parameter("effort_controller", rclcpp::ParameterValue("/effort_controller/commands"));
+    declare_parameter("joint_names", rclcpp::ParameterValue(std::vector<std::string>()));
 
     declare_parameter(JOINT_STATE_TOPIC_PARAMETER, rclcpp::ParameterValue("joint_states"));
     declare_parameter(MODEL_STATE_TOPIC_PARAMETER, rclcpp::ParameterValue("robot_dynamics/model_state"));
@@ -118,6 +119,9 @@ void Control::robot_description_callback(std_msgs::msg::String::SharedPtr msg)
   model_state_listener->model(model_);
   model_state_listener->state(current.state);
 
+  // todo: is there a way we can exctract this from the URDF or SRDF?
+  current.control->set_joints(
+          get_parameter("joint_names").get_value<std::vector<std::string>>());
 
   // we can activate now if we havent already
   if (get_parameter("self_manage").get_value<bool>()) {

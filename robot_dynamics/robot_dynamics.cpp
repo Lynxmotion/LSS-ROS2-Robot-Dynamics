@@ -52,7 +52,7 @@ Dynamics::Dynamics(
     declare_parameter("self_manage", rclcpp::ParameterValue(false));
     declare_parameter("joint_controller", rclcpp::ParameterValue("lss_joint_controller"));
     declare_parameter("effort_controller", rclcpp::ParameterValue("/effort_controller/commands"));
-    declare_parameter("joint_names", rclcpp::ParameterValue(std::vector<std::string>()));
+    //declare_parameter("joint_names", rclcpp::ParameterValue(std::vector<std::string>()));
     declare_parameter("sim_mode", rclcpp::ParameterValue(false));
 
     // declare as optional
