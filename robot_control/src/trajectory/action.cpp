@@ -8,14 +8,14 @@
 
 namespace robotik::trajectory {
 
-TrajectoryAction::TrajectoryAction(const trajectory::Expression& expr, std::shared_ptr<trajectory::GoalHandle> goal_handle)
+TrajectoryAction::TrajectoryAction(const trajectory::Expression& expr, std::shared_ptr<GoalHandle> goal_handle)
     : state(Pending)
 {
     member.ts = expr.start;
     member.expression = expr;
     if(goal_handle) {
         goal_handle_ = std::move(goal_handle);
-        feedback_ = std::make_shared<trajectory::EffectorTrajectory::Feedback>();
+        feedback_ = std::make_shared<EffectorTrajectory::Feedback>();
     }
 }
 
@@ -75,12 +75,12 @@ void TrajectoryAction::complete(Limbs& limbs, const Model&, const rclcpp::Time&,
     limb.mode = Limb::Holding;
 
     // signal complete
-    auto result = std::make_shared<trajectory::EffectorTrajectory::Result>();
-    result->result.transform = tf2::kdlToTransform(limb.target).transform;
+    auto result = std::make_shared<EffectorTrajectory::Result>();
+    result->result.transforms.emplace_back(tf2::kdlToTransform(limb.target).transform);
     // todo: add current position, velocity or error?
     //result->result.position = tf2::kdlToTransform(limb.target).transform;
     //result->result.velocity = tf2::kdlToTransform(limb.target).transform;
-    result->result.segment = member.expression.segment;
+    result->result.effectors.emplace_back(member.expression.segment);
     result->result.duration = (float)member.segment.Duration();;
     result->result.code = code;
     result->result.value = 0.0;
@@ -123,8 +123,8 @@ void TrajectoryAction::send_feedback(const Limbs& limbs, const Model&, const rcl
     // report progress
     auto& fb = feedback_->progress;
     fb.duration = (float)duration;
-    fb.segment = member.expression.segment;
-    fb.transform = tf2::kdlToTransform(limb.model->origin.Inverse() * limb.target).transform;
+    fb.effectors.emplace_back(member.expression.segment);
+    fb.transforms.emplace_back(tf2::kdlToTransform(limb.model->origin.Inverse() * limb.target).transform);
     fb.progress = constrain(0.0f, (float)(t - member.ts) / fb.duration, 1.0f);
     fb.id = member.expression.id;
     fb.acceleration = 0.0;

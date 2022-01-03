@@ -298,7 +298,7 @@ Control::on_activate(const rclcpp_lifecycle::State &)
     kinematics.activate(model_);
 
     // Trajectory Action Server
-    this->trajectory_action_server_ = rclcpp_action::create_server<trajectory::EffectorTrajectory>(
+    this->trajectory_action_server_ = rclcpp_action::create_server<robotik::trajectory::TrajectoryAction::EffectorTrajectory>(
             this,
             "~/trajectory",
             std::bind(&Control::handle_trajectory_goal, this, std::placeholders::_1, std::placeholders::_2),
@@ -955,24 +955,24 @@ catch (std::exception & e) {
 
 
 /*
- *   Trajectory Actions
+ *   Single Trajectory Action
  */
 rclcpp_action::GoalResponse Control::handle_trajectory_goal(
         const rclcpp_action::GoalUUID & uuid,
-        std::shared_ptr<const trajectory::EffectorTrajectory::Goal> goal)
+        std::shared_ptr<const robotik::trajectory::TrajectoryAction::EffectorTrajectory::Goal> goal)
 {
     //RCLCPP_INFO(this->get_logger(), "Received goal request with order %d", goal->order);
     (void)uuid;
     auto& request = goal->goal;
 
     if(!target) {
-        RCLCPP_INFO(this->get_logger(), "Cannot accept trajectory goals without an existing state");
+        RCLCPP_INFO(get_logger(), "Cannot accept trajectory goals without an existing state");
         return rclcpp_action::GoalResponse::REJECT; // no segment by this name
     }
 
     KDL::Frame f;
     if(!target->findTF(request.segment.segment, f)) {
-        RCLCPP_INFO(this->get_logger(), "Segment %s in goal request doesn't exist in state", request.segment.segment.c_str());
+        RCLCPP_INFO(get_logger(), "Segment %s in goal request doesn't exist in state", request.segment.segment.c_str());
         return rclcpp_action::GoalResponse::REJECT; // no segment by this name
     }
 
@@ -980,10 +980,10 @@ rclcpp_action::GoalResponse Control::handle_trajectory_goal(
 }
 
 rclcpp_action::CancelResponse Control::handle_trajectory_cancel(
-        const std::shared_ptr<trajectory::GoalHandle> goal_handle)
+        const std::shared_ptr<robotik::trajectory::TrajectoryAction::GoalHandle> goal_handle)
 {
     auto& request = goal_handle->get_goal()->goal;
-    RCLCPP_INFO(this->get_logger(), "Received request to cancel goal for segment %s", request.segment.segment.c_str());
+    RCLCPP_INFO(get_logger(), "Received request to cancel goal for segment %s", request.segment.segment.c_str());
 
     actions.complete(
             request.segment.segment,
@@ -994,7 +994,7 @@ rclcpp_action::CancelResponse Control::handle_trajectory_cancel(
     return rclcpp_action::CancelResponse::ACCEPT;
 }
 
-void Control::handle_trajectory_accepted(const std::shared_ptr<trajectory::GoalHandle> goal_handle)
+void Control::handle_trajectory_accepted(const std::shared_ptr<robotik::trajectory::TrajectoryAction::GoalHandle> goal_handle)
 {
     auto& request = goal_handle->get_goal()->goal;
 

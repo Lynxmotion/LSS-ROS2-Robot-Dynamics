@@ -10,15 +10,13 @@
 #include "model.h"
 
 #include <rclcpp_action/rclcpp_action.hpp>
-#include <robot_model_msgs/msg/multi_trajectory_progress.hpp>
 #include <robot_model_msgs/action/effector_trajectory.hpp>
+#include <robot_model_msgs/action/coordinated_effector_trajectory.hpp>
 
 #include <map>
 
 namespace robotik::trajectory {
 
-using EffectorTrajectory = robot_model_msgs::action::EffectorTrajectory;
-using GoalHandle = rclcpp_action::ServerGoalHandle<EffectorTrajectory>;
 using TimeRange = range_t<double>;
 
 class TrajectoryActionInterface
@@ -89,9 +87,12 @@ public:
 class TrajectoryAction : public TrajectoryActionInterface
 {
 public:
+    using EffectorTrajectory = robot_model_msgs::action::EffectorTrajectory;
+    using GoalHandle = rclcpp_action::ServerGoalHandle<EffectorTrajectory>;
+
     inline TrajectoryAction(): state(Pending) {}
 
-    TrajectoryAction(const trajectory::Expression& expr, std::shared_ptr<trajectory::GoalHandle> goal_handle);
+    TrajectoryAction(const trajectory::Expression& expr, std::shared_ptr<GoalHandle> goal_handle);
 
     /// Return the start and end time of this action
     [[nodiscard]] TimeRange time_range() const override;
@@ -129,8 +130,8 @@ public:
 protected:
     TrajectoryActionMember member;
     trajectory::RenderState state;
-    std::shared_ptr<trajectory::GoalHandle> goal_handle_;
-    std::shared_ptr<trajectory::EffectorTrajectory::Feedback> feedback_;
+    std::shared_ptr<GoalHandle> goal_handle_;
+    std::shared_ptr<EffectorTrajectory::Feedback> feedback_;
 };
 
 class TrajectoryActions : public std::list<TrajectoryActionInterface::SharedPtr>

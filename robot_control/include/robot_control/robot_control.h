@@ -194,15 +194,14 @@ protected:
     void set_limb_callback(const std::shared_ptr<robot_model_msgs::srv::SetLimb::Request> request,
                         std::shared_ptr<robot_model_msgs::srv::SetLimb::Response> response);
 
-    // trajectory action
-    rclcpp_action::Server<trajectory::EffectorTrajectory>::SharedPtr trajectory_action_server_;
+    // Single Trajectory action
+    rclcpp_action::Server<robotik::trajectory::TrajectoryAction::EffectorTrajectory>::SharedPtr trajectory_action_server_;
     rclcpp_action::GoalResponse handle_trajectory_goal(
             const rclcpp_action::GoalUUID & uuid,
-            std::shared_ptr<const trajectory::EffectorTrajectory::Goal> goal);
+            std::shared_ptr<const robotik::trajectory::TrajectoryAction::EffectorTrajectory::Goal> goal);
     rclcpp_action::CancelResponse handle_trajectory_cancel(
-            const std::shared_ptr<trajectory::GoalHandle> goal_handle);
-    void handle_trajectory_accepted(const std::shared_ptr<trajectory::GoalHandle> goal_handle);
-
+            const std::shared_ptr<robotik::trajectory::TrajectoryAction::GoalHandle> goal_handle);
+    void handle_trajectory_accepted(const std::shared_ptr<robotik::trajectory::TrajectoryAction::GoalHandle> goal_handle);
 };
 
 } // ns:robot_dynamics
