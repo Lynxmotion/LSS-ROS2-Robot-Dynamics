@@ -60,19 +60,12 @@ bool Limb::on_activate() {
 
     // preallocate memory for IK variables
     joint_names.resize(nj);
-    q.resize(nj);
-    qdot.resize(nj);
-    qdotdot.resize(nj);
-
     return true;
 }
 
 bool Limb::on_deactivate() {
     chain.reset();
     joint_names.clear();
-    q.resize(0);
-    qdot.resize(0);
-    qdotdot.resize(0);
     return true;
 }
 

@@ -134,11 +134,6 @@ public:
 protected:
     ///@brief Orokos API chain for this limb
     std::unique_ptr<KDL::Chain> chain;
-
-    /// IK variables
-    KDL::JntArray q;
-    KDL::JntArray qdot;
-    KDL::JntArray qdotdot;
 };
 
 class LimbModels : public std::vector<Limb::SharedPtr>
