@@ -21,7 +21,7 @@ using EffectorTrajectory = robot_model_msgs::action::EffectorTrajectory;
 using GoalHandle = rclcpp_action::ServerGoalHandle<EffectorTrajectory>;
 using TimeRange = range_t<double>;
 
-class ActionMember
+class TrajectoryActionMember
 {
 public:
     double ts;
@@ -29,7 +29,7 @@ public:
     trajectory::Expression expression;
     trajectory::RenderedSegment segment;
 
-    inline explicit ActionMember(double ts = 0.0)
+    inline explicit TrajectoryActionMember(double ts = 0.0)
     : ts(ts) {}
 
     [[nodiscard]] inline double duration() const {
@@ -46,22 +46,14 @@ public:
 
 };
 
-struct ActionArgs
-{
-    const State& state;
-    const Model& model;
-    const Limbs& limbs;
-    const rclcpp::Time& now;
-};
-
-class Action
+class TrajectoryAction
 {
 public:
-    using SharedPtr = std::shared_ptr<Action>;
+    using SharedPtr = std::shared_ptr<TrajectoryAction>;
 
-    inline Action(): state(Pending) {}
+    inline TrajectoryAction(): state(Pending) {}
 
-    Action(const trajectory::Expression& expr, std::shared_ptr<trajectory::GoalHandle> goal_handle);
+    TrajectoryAction(const trajectory::Expression& expr, std::shared_ptr<trajectory::GoalHandle> goal_handle);
 
     /// Return the start and end time of this action
     [[nodiscard]] TimeRange time_range() const;
@@ -97,16 +89,16 @@ public:
     void send_feedback(const Limbs& limbs, const Model& model, const rclcpp::Time& now);
 
 protected:
-    ActionMember member;
+    TrajectoryActionMember member;
     trajectory::RenderState state;
     std::shared_ptr<trajectory::GoalHandle> goal_handle_;
     std::shared_ptr<trajectory::EffectorTrajectory::Feedback> feedback_;
 };
 
-class Actions : public std::list<Action::SharedPtr>
+class TrajectoryActions : public std::list<TrajectoryAction::SharedPtr>
 {
 public:
-    Action::SharedPtr append(Action::SharedPtr action);
+    TrajectoryAction::SharedPtr append(TrajectoryAction::SharedPtr action);
 
     void complete(std::string member_name,
                   Limbs& limbs,

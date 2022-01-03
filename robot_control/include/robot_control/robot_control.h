@@ -128,7 +128,7 @@ protected:
     Kinematics kinematics;
 
     // list of actions being performed on the robot limbs/effectors
-    trajectory::Actions actions;
+    trajectory::TrajectoryActions actions;
 
     robotik::Model::SharedPtr model_;
 

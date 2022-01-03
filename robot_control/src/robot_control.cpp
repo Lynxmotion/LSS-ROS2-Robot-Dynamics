@@ -677,7 +677,7 @@ bool Control::update_target(const State& current, rclcpp::Time _now) {
     //
     // Update limbs using any active trajectory actions
     //
-    std::vector<trajectory::Actions::const_iterator> expired;
+    std::vector<trajectory::TrajectoryActions::const_iterator> expired;
     for(auto a=actions.begin(), _a=actions.end(); a!=_a; a++) {
         auto& action = *a;
         trajectory::TimeRange tr = action->time_range();
@@ -1018,7 +1018,7 @@ void Control::handle_trajectory_accepted(const std::shared_ptr<trajectory::GoalH
             robot_model_msgs::msg::TrajectoryComplete::PREEMPTED);
 
     // add the new action
-    actions.append(std::make_shared<trajectory::Action>(expr, goal_handle));
+    actions.append(std::make_shared<trajectory::TrajectoryAction>(expr, goal_handle));
 }
 
 

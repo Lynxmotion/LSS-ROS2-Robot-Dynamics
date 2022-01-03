@@ -8,7 +8,7 @@
 
 namespace robotik::trajectory {
 
-Action::Action(const trajectory::Expression& expr, std::shared_ptr<trajectory::GoalHandle> goal_handle)
+TrajectoryAction::TrajectoryAction(const trajectory::Expression& expr, std::shared_ptr<trajectory::GoalHandle> goal_handle)
     : state(Pending)
 {
     member.ts = expr.start;
@@ -19,7 +19,7 @@ Action::Action(const trajectory::Expression& expr, std::shared_ptr<trajectory::G
     }
 }
 
-TimeRange Action::time_range() const
+TimeRange TrajectoryAction::time_range() const
 {
     double duration = (state == Rendered)
             ? member.segment.Duration()
@@ -27,7 +27,7 @@ TimeRange Action::time_range() const
     return { member.ts, member.ts + duration };
 }
 
-bool Action::render(const Limbs& limbs, const Model&, RenderingInterface& env)
+bool TrajectoryAction::render(const Limbs& limbs, const Model&, RenderingInterface& env)
 {
     auto& limb = limbs[member.expression.segment];
     auto duration = member.segment.render(member.expression, limb.position, env);
@@ -36,7 +36,7 @@ bool Action::render(const Limbs& limbs, const Model&, RenderingInterface& env)
     return duration > 0.0;
 }
 
-void Action::apply(Limbs& limbs, const Model&, double ts)
+void TrajectoryAction::apply(Limbs& limbs, const Model&, double ts)
 {
     if(state != Rendered)
         return;
@@ -48,7 +48,7 @@ void Action::apply(Limbs& limbs, const Model&, double ts)
     std::cout << "    applied " << limb.model->options_.to_link << "    pos: " << ts << std::endl;
 }
 
-void Action::complete(Limbs& limbs, const Model&, const rclcpp::Time&, int code)
+void TrajectoryAction::complete(Limbs& limbs, const Model&, const rclcpp::Time&, int code)
 {
     if(!goal_handle_)
         return;
@@ -91,7 +91,7 @@ void Action::complete(Limbs& limbs, const Model&, const rclcpp::Time&, int code)
     std::cout << "    completed " << limb.model->options_.to_link << "    code: " << code << std::endl;
 }
 
-bool Action::complete(std::string member_name, Limbs& limbs, const Model& model, const rclcpp::Time& now, int code)
+bool TrajectoryAction::complete(std::string member_name, Limbs& limbs, const Model& model, const rclcpp::Time& now, int code)
 {
     // ignore if it isnt the member we are controlling
     if(member_name != member.expression.segment)
@@ -102,7 +102,7 @@ bool Action::complete(std::string member_name, Limbs& limbs, const Model& model,
     return true;
 }
 
-void Action::send_feedback(const Limbs& limbs, const Model&, const rclcpp::Time& now)
+void TrajectoryAction::send_feedback(const Limbs& limbs, const Model&, const rclcpp::Time& now)
 {
     if(!goal_handle_)
         return;
@@ -129,7 +129,7 @@ void Action::send_feedback(const Limbs& limbs, const Model&, const rclcpp::Time&
 
 
 
-Action::SharedPtr Actions::append(Action::SharedPtr action)
+TrajectoryAction::SharedPtr TrajectoryActions::append(TrajectoryAction::SharedPtr action)
 {
     auto itr = insert(end(), action);
     if(itr == end())
@@ -137,11 +137,11 @@ Action::SharedPtr Actions::append(Action::SharedPtr action)
     return *itr;
 }
 
-void Actions::complete(std::string member_name,
-                       Limbs& limbs,
-                       const Model& model,
-                       const rclcpp::Time& now,
-                       int code)
+void TrajectoryActions::complete(std::string member_name,
+                                 Limbs& limbs,
+                                 const Model& model,
+                                 const rclcpp::Time& now,
+                                 int code)
 {
     for(auto a=begin(); a != end(); ) {
         if((*a)->complete(member_name, limbs, model, now, code)) {
