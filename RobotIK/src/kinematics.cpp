@@ -285,7 +285,7 @@ void Kinematics::activate(Model::SharedPtr model)
     center_of_mass_.Zero();
     for(auto& l: model_->limbs) {
         if(l->joint_names.empty())
-            throw std::runtime_error("model contains limb " + l->options_.to_link + " with no moving joints");
+            throw robotik::Exception(RE_INVALID_CHAIN, "model contains limb " + l->options_.to_link + " with no moving joints");
         limbs_first_joint.insert(l->joint_names[0]);
         limbs_.emplace(std::make_pair(l->options_.to_link, l));
     }
@@ -355,7 +355,7 @@ void Kinematics::invalidate(std::string limb, LimbKinematics::SolutionState what
     if(itr != limbs_.end()) {
         return itr->second.invalidate(what_changed);
     } else
-        throw std::runtime_error("limb " + limb + " not found");
+        throw robotik::Exception::LimbNotFound(limb);
 }
 
 bool Kinematics::updateState(State& state)

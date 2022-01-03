@@ -18,14 +18,16 @@ typedef enum {
     RE_ELEMENT_NOT_FOUND = 4,
     RE_SEGMENT_NOT_FOUND = 5,
     RE_JOINT_NOT_FOUND = 6,
-    RE_JOINT_SIZE_MISMATCH = 7,
-    RE_URDF_GEOMETRY_ERROR = 8,
-    RE_INVALID_CHAIN = 9,
-    RE_EMPTY_STATES = 10,
-    RE_OUT_OF_BOUNDS = 11,
-    RE_BAD_OPERATOR_STATE = 12,
-    RE_BAD_TIMING = 13,
-    RE_OUT_OF_ORDER = 14
+    RE_LIMB_NOT_FOUND = 7,
+    RE_EFFECTOR_NOT_FOUND = 8,
+    RE_SIZE_MISMATCH = 9,
+    RE_URDF_GEOMETRY_ERROR = 10,
+    RE_INVALID_CHAIN = 11,
+    RE_EMPTY_STATES = 12,
+    RE_OUT_OF_BOUNDS = 13,
+    RE_BAD_OPERATOR_STATE = 14,
+    RE_BAD_TIMING = 15,
+    RE_OUT_OF_ORDER = 16
 } robotik_exception_code;
 
 
@@ -66,6 +68,8 @@ public:
             case RE_ZERO_MASS: return "model had zero mass";
             case RE_SEGMENT_NOT_FOUND: return "segment not found";
             case RE_JOINT_NOT_FOUND: return "joint not found";
+            case RE_LIMB_NOT_FOUND: return "limb not found";
+            case RE_EFFECTOR_NOT_FOUND: return "effector not found";
             default:
                 return "robotic unknown error";
         }
@@ -81,6 +85,14 @@ public:
 
     static Exception JointNotFound(std::string segname) {
         return Exception(RE_JOINT_NOT_FOUND, "joint '" + segname + "' not found");
+    }
+
+    static Exception LimbNotFound(std::string name) {
+        return Exception(RE_LIMB_NOT_FOUND, "limb '" + name + "' not found");
+    }
+
+    static Exception EffectorNotFound(std::string name) {
+        return Exception(RE_EFFECTOR_NOT_FOUND, "effector '" + name + "' not found");
     }
 
     static Exception OutOfOrder(std::string reason) {

@@ -407,7 +407,7 @@ KDL::Frame Model::getRelativeFrame(const FrameRef& ref, const State& state)
     switch(ref.type) {
         case FrameRef::Segment:
             if(!state.findTF(ref.name, f))
-                throw std::runtime_error("frame for segment " + ref.name + " doesnt exist");
+                throw robotik::Exception::SegmentNotFound(ref.name);
             break;
 #if 1   // todo: these get_relative_frame requires access to Model  (maybe Control needs to be RenderingInterface)
         //case FrameRef::Joint:
@@ -416,18 +416,18 @@ KDL::Frame Model::getRelativeFrame(const FrameRef& ref, const State& state)
         case FrameRef::World:
             // lookup the relativeFrame and odom and invert it, so we get worlds frame with respect to algo
             if(!state.findTF(state.relativeFrameName, f))
-                throw std::runtime_error("frame for segment " + ref.name + " doesnt exist");
+                throw robotik::Exception::SegmentNotFound(state.relativeFrameName);
             if(!state.findTF(odom_link, g))
-                throw std::runtime_error("frame for segment " + ref.name + " doesnt exist");
+                throw robotik::Exception::SegmentNotFound(odom_link);
             f = f.Inverse() * g.Inverse();   // todo: test this
             break;
         case FrameRef::Odometry:
             //if(!state.findTF(odom_link, f))
-            //    throw std::runtime_error("frame for segment " + ref.name + " doesnt exist");
+            //    throw robotik::Exception::SegmentNotFound(odom_link);
             break;
         case FrameRef::Robot:
             if(!state.findTF(base_link, f))
-                throw std::runtime_error("frame for robot base doesnt exist");
+                throw robotik::Exception::SegmentNotFound(base_link);
             break;
         case FrameRef::CoM:
             f.p = state.CoM;
@@ -441,11 +441,11 @@ KDL::Frame Model::getRelativeFrame(const FrameRef& ref, const State& state)
             break;
         case FrameRef::Footprint:
             if(!state.findTF(footprint_link, f))
-                throw std::runtime_error("frame for footprint doesnt exist");
+                throw robotik::Exception::SegmentNotFound(footprint_link);
             break;
 #endif
         default:
-            throw std::runtime_error("frame reference for " + std::string(ref.typeName()) + " not implemented");
+            throw robotik::Exception(RE_SEGMENT_NOT_FOUND, "frame reference for " + std::string(ref.typeName()) + " not implemented");
     }
     return f;
 }

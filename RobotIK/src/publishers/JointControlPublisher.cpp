@@ -116,8 +116,9 @@ void JointControlPublisher::publish_joint_trajectory()
         return;
 
     if (state_->joints.size() != (size_t) state_->position.rows()) {
-        throw std::runtime_error(
-                    "refuse to publish when joint names and positions arrays are not equal length");
+        throw robotik::Exception(
+                RE_SIZE_MISMATCH,
+                "refuse to publish when joint names and positions arrays are not equal length");
     }
 
     // todo: publishing joints order should match Q_NR joint order
@@ -144,8 +145,7 @@ void JointControlPublisher::publish_joint_trajectory()
 
         if(j_idx < 0) {
             // joint name was not found, this is a trajic error
-            throw std::runtime_error(
-                    "cannot publish joint " + j_name + " because it is not found in state");
+            throw robotik::Exception::JointNotFound(j_name);
         }
 
         // add the joint position

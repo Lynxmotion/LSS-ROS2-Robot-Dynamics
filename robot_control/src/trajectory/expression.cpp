@@ -3,6 +3,7 @@
 //
 
 #include "robot_control/trajectory/expression.h"
+#include <exception.h>
 
 namespace robotik {
 
@@ -18,7 +19,7 @@ const char* FrameRef::typeName(FrameRef::FrameType ft) {
         case FrameRef::CoP: return "CoP";
         case FrameRef::Footprint: return "footprint";
         default:
-            throw std::runtime_error("unknown FrameRef type");
+            throw robotik::Exception(RE_OUT_OF_BOUNDS, "unknown FrameRef type");
     }
 }
 

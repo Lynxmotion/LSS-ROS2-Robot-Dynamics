@@ -26,7 +26,6 @@ ssize_t JointStateOrdinalMap::resolve(const JointState& state, size_t input_ordi
             // add the mapping into the index
             return joint_trajectory_index[input_ordinal] = ord;
         } else {
-            //throw std::runtime_error("joint " + joint_name + " not found in state");
             return -1;
         }
     }

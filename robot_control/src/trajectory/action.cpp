@@ -61,7 +61,7 @@ void Action::complete(Limbs& limbs, const Model&, const rclcpp::Time&, int code)
         if(state.findTF(model.base_link, body_tf)) {
             segment_state = body_tf.Inverse() * segment_state;
         } else
-            throw std::runtime_error("no " + model.base_link + " frame in state");
+            throw robotik::Exception::SegmentNotFound(model.base_link);
     }
 #endif
 
@@ -133,7 +133,7 @@ Action::SharedPtr Actions::append(Action::SharedPtr action)
 {
     auto itr = insert(end(), action);
     if(itr == end())
-        throw std::runtime_error("cannot add action");
+        throw robotik::Exception(RE_FAILED, "cannot add action");
     return *itr;
 }
 

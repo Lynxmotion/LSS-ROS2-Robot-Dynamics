@@ -154,14 +154,14 @@ public:
     inline Limb::State& operator[](const std::string& s) {
         auto itr = std::find_if(begin(), end(), [&s](const Limb::State& l) { return l.model->options_.to_link == s; });
         if(itr == end())
-            throw std::runtime_error("no limb by the name of " + s + " exists");
+            throw robotik::Exception::LimbNotFound(s);
         return *itr;
     }
 
     inline const Limb::State& operator[](const std::string& s) const {
         auto itr = find_if(begin(), end(), [&s](const Limb::State& l) { return l.model->options_.to_link == s; });
         if(itr == end())
-            throw std::runtime_error("no limb by the name of " + s + " exists");
+            throw robotik::Exception::LimbNotFound(s);
         return *itr;
     }
 
