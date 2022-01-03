@@ -15,10 +15,6 @@
 
 namespace robotik {
 
-static double eps = 1E-5;
-static double eps_joints = 1E-15;
-
-
 Limb::Limb(const Options& options)
     : options_(options), friction(Friction::fromTable(Aluminum, Wood))
 {
@@ -114,116 +110,6 @@ KDL::Frame Limb::computeTFfromBase(const JointState& state) {
     }
     return tf;
 #endif
-}
-
-int Limb::updateIK(JointAndSegmentState& state, KDL::Frame new_effector_pose, bool relative_to_odom)
-{
-    int updates = 0;
-
-    // convert effector pose relative to limb's base link rather then the default (odom) frame
-    KDL::Frame baseTF;
-    if (state.findTF(options_.from_link, baseTF)) {
-        if(relative_to_odom)
-            new_effector_pose = baseTF.Inverse() * new_effector_pose;
-    }
-
-    auto updated_joints = computePose(state, new_effector_pose);
-    if(!updated_joints.empty()) {
-        // success
-        state.tf[options_.to_link] = new_effector_pose;  // store original event TF to target segment
-
-        // updates joints in state
-        for(auto& joint: updated_joints) {
-            auto jordinal = state.findJoint(joint.name);
-            if(jordinal >= 0) {
-                state.joints_updated[jordinal] = true;
-                state.position(jordinal) = joint.position;
-                updates++;
-            }
-        }
-    }
-    return updates;
-}
-
-NamedJointArray Limb::computePose(const JointState& state, KDL::Frame base)
-{
-    // todo: if state.positions JntArray is ordered in Limb order, we can just directly subscript and pass into solver, or build a cache map
-    if(chain) {
-        auto nj = chain->getNrOfJoints();
-        KDL::JntArray jnt_quess( nj );
-        KDL::JntArray q_out( nj );
-        NamedJointArray joints_out( nj );
-
-        // get information about the chain
-        auto ns = chain->getNrOfSegments();
-        for(unsigned int s=0, j=0; s < ns; s++) {
-            auto segment = chain->getSegment(s);
-            auto joint = segment.getJoint();
-            auto jname = joint.getName();
-            if(joint.getType() == KDL::Joint::None)
-                continue;   // skip fixed axis
-
-            auto jordinal = state.findJoint(jname);
-            if (jordinal < 0) {
-                // error, joint value not found
-                return NamedJointArray();
-            }
-
-            jnt_quess(j) = state.position(jordinal);
-            joints_out[j].name = jname;
-            j++;
-        }
-
-        Eigen::Matrix< double, 6, 1 > L;
-#if 1
-        L(0)=1;
-        L(1)=1;
-        L(2)=1;
-        L(3)=0.01;
-        L(4)=0.01;
-        L(5)=0.01;
-#else
-        L(0)=0.5;
-        L(1)=0.5;
-        L(2)=0.5;
-        L(3)=0.005;
-
-        L(4)=0.005;
-        L(5)=0.005;
-#endif
-
-        KDL::ChainIkSolverPos_LMA solver(*chain, L, eps, 500, eps_joints);
-        auto err = solver.CartToJnt(jnt_quess, base, q_out);
-        if(err == KDL::ChainIkSolverPos_LMA::E_NOERROR
-                    || err == KDL::ChainIkSolverPos_LMA::E_INCREMENT_JOINTS_TOO_SMALL
-                    || err == KDL::ChainIkSolverPos_LMA::E_GRADIENT_JOINTS_TOO_SMALL) {
-            for(unsigned int s=0; s < nj; s++) {
-                joints_out[s].position = q_out(s);
-                joints_out[s].velocity = 0;
-            }
-            return joints_out;
-        } else {
-#if defined(DEBUG_LIMB)
-            std::cout << "IK failed: " << options_.to_link << ": ";
-            switch(err) {
-                case KDL::ChainIkSolverPos_LMA::E_GRADIENT_JOINTS_TOO_SMALL: std::cout << "GRADIENT_JOINTS_TOO_SMALL the gradient of E towards the joints is to small" << std::endl; break;
-                case KDL::ChainIkSolverPos_LMA::E_INCREMENT_JOINTS_TOO_SMALL: std::cout << "INCREMENT_JOINTS_TOO_SMALL joint position increments are to small" << std::endl; break;
-                case KDL::SolverI::E_MAX_ITERATIONS_EXCEEDED: std::cout << "MAX_ITERATIONS_EXCEEDED number of iterations is exceeded" << std::endl; break;
-                default:
-                    std::cout << " error " << err << std::endl;
-                    break;
-            }
-#if DEBUG_LIMB > 1
-            std::cout << "    limb: " << options_.to_link << "   joints: ";
-            for (int i = 0, _i = jnt_quess.rows(); i < _i; i++) {
-                std::cout << "   " << joint_names[i] << "=" << jnt_quess(i);
-            }
-            std::cout << std::endl;
-#endif
-#endif
-        }
-    }
-    return NamedJointArray();
 }
 
 void Limb::loadSupportPolygon(urdf::ModelInterfaceSharedPtr urdf_model_) {
