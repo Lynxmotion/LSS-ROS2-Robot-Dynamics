@@ -95,7 +95,7 @@ void pose_to_kdl_frame(const geometry_msgs::msg::Pose& pose, KDL::Frame& frame) 
     frame.M = KDL::Rotation::Quaternion(pose.orientation.x, pose.orientation.y, pose.orientation.z, pose.orientation.w);
 }
 
-namespace tf {
+namespace tf2 {
     void fromMsg(const geometry_msgs::msg::Wrench& in, KDL::Wrench& out)
     {
         vector_to_kdl_vector(in.force, out.force);
@@ -118,6 +118,18 @@ namespace tf {
     {
         kdl_vector_to_vector(in.rot, out.angular);
         kdl_vector_to_vector(in.vel, out.linear);
+    }
+
+    void fromMsg(const geometry_msgs::msg::Transform& in, KDL::Frame& out)
+    {
+        vector_to_kdl_vector(in.translation, out.p);
+        quat_to_kdl_rotation(in.rotation, out.M);
+    }
+
+    void toMsg(const KDL::Frame& in, geometry_msgs::msg::Transform& out)
+    {
+        kdl_vector_to_vector(in.p, out.translation);
+        kdl_rotation_to_quat(in.M, out.rotation);
     }
 }
 

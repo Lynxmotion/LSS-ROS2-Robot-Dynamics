@@ -42,6 +42,10 @@ namespace tf2 {
     // KDL twist
     void fromMsg(const geometry_msgs::msg::Twist& in, KDL::Twist& out);
     void toMsg(const KDL::Twist& in, geometry_msgs::msg::Twist& out);
+
+    // KDL Transform
+    void fromMsg(const geometry_msgs::msg::Transform& in, KDL::Frame& out);
+    void toMsg(const KDL::Frame& in, geometry_msgs::msg::Transform& out);
 }
 
 inline KDL::Rotation to_kdl_rotation(const geometry_msgs::msg::Quaternion& src)
