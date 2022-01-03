@@ -160,6 +160,7 @@ protected:
 
     robotik::JointStateListener::SharedPtr joint_state_listener;
     robotik::ModelStateListener::SharedPtr model_state_listener;
+    //robotik::SegmentStateListener::SharedPtr segment_state_listener;  <-- incomplete implementation
     robotik::JointControlPublisher::SharedPtr joint_control_publisher;
 
     rclcpp::TimerBase::SharedPtr update_timer_, progress_timer_, preview_timer_, publish_state_timer_, diag_timer_;
@@ -171,10 +172,6 @@ protected:
     // detect parameters modification during runtime
     rclcpp::node_interfaces::OnSetParametersCallbackHandle::SharedPtr old_parameter_set_callback;
     rcl_interfaces::msg::SetParametersResult parameter_set_callback(const std::vector<rclcpp::Parameter> & param);
-
-    rclcpp::Subscription<tf2_msgs::msg::TFMessage>::SharedPtr subscription_tf_;
-    rclcpp::Subscription<tf2_msgs::msg::TFMessage>::SharedPtr subscription_tf_static_;
-    void tf_callback(tf2_msgs::msg::TFMessage::SharedPtr msg, bool is_static);        // callback
 
     // extended joint controller publishers
     robot_model_msgs::msg::ControlState::SharedPtr control_state_msg_;

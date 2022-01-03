@@ -69,6 +69,15 @@ void ModelStateListener::model_state_callback(ModelStateMessageType::SharedPtr m
     }
 #endif
 
+    // world and odometry update
+    KDL::Frame world, odom, base;
+    tf2::fromMsg(msg->world, world);
+    tf2::fromMsg(msg->odom, odom);
+    tf2::fromMsg(msg->base_pose, base);
+    state_->tf[world_link] = world;
+    state_->tf[model_->odom_link] = odom;
+    state_->tf[model_->base_link] = base;
+
     // update support
     vector_to_kdl_vector(msg->support.center_of_pressure, state_->CoP);
     vector_to_kdl_vector(msg->support.support_polygon, state_->supportPolygon);

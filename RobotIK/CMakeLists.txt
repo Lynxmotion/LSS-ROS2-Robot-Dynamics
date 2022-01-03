@@ -7,6 +7,7 @@ set(INCLUDE_FILES
         kinematics.h
         listeners/JointStateListener.h
         listeners/ModelStateListener.h
+        listeners/SegmentStateListener.h
         publishers/JointControlPublisher.h)
 set(SOURCE_FILES
         types.cpp model.cpp limb.cpp frame-ref.cpp
@@ -15,6 +16,7 @@ set(SOURCE_FILES
         kinematics.cpp
         listeners/JointStateListener.cpp
         listeners/ModelStateListener.cpp
+        listeners/SegmentStateListener.cpp
         publishers/JointControlPublisher.cpp)
 
 list(TRANSFORM INCLUDE_FILES PREPEND include/)

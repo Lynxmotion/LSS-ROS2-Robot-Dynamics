@@ -157,20 +157,6 @@ Control::on_configure(const rclcpp_lifecycle::State &)
     }
 #endif
 
-    using callback_t = std::function<void(tf2_msgs::msg::TFMessage::SharedPtr)>;
-    callback_t cb = std::bind(&Control::tf_callback, this, std::placeholders::_1, false);
-    callback_t static_cb = std::bind(&Control::tf_callback, this, std::placeholders::_1, true);
-    subscription_tf_ = this->create_subscription<tf2_msgs::msg::TFMessage>(
-        "/tf",
-        10,
-        std::move(cb)
-    );
-    subscription_tf_static_ = this->create_subscription<tf2_msgs::msg::TFMessage>(
-        "/tf_static",
-        10,
-        std::move(static_cb)
-    );
-
     // publisher for joint trajectory
     auto joint_controller_name = get_parameter("joint_controller").get_value<std::string>();
     auto effort_controller_name = has_parameter("effort_controller")
@@ -455,44 +441,6 @@ rcl_interfaces::msg::SetParametersResult Control::parameter_set_callback(const s
     auto res = rcl_interfaces::msg::SetParametersResult();
     res.set__successful(true);
     return res;
-}
-
-void Control::tf_callback(tf2_msgs::msg::TFMessage::SharedPtr msg, bool /* is_static */)
-{
-    int updates = 0;
-    builtin_interfaces::msg::Time now;
-    if(model_ && current) {
-        for (auto i = 0u; i < msg->transforms.size(); i++) {
-            auto& tfx = msg->transforms[i];
-            auto frame_id = tfx.child_frame_id;
-            now = tfx.header.stamp;
-            if(!frame_id.empty() && frame_id[0]=='/')
-                frame_id = frame_id.substr(1);
-
-            // does the transform have a prefix
-            //std::string prefix;
-            auto slash_itr = frame_id.find('/');
-            if(slash_itr != std::string::npos) {
-                // for now any prefix would indicate TF other than robot state so we ignore
-                continue;
-#if 0
-                prefix = frame_id.substr(0, slash_itr-1);
-                frame_id = frame_id.substr(slash_itr);
-#endif
-            }
-
-            // todo: we are limiting to only receiving world and odom coordinates for now
-            //      because the segment transforms are relative to each links parent and not
-            //      odom frame like our State is...so this is pretty useless to us unless we
-            //      integrate into the model tree or change the way our State works
-            if(frame_id == "world" || frame_id == model_->odom_link || frame_id == model_->base_link)
-                current->tf[frame_id] = tf2::transformToKDL(tfx);
-            updates++;
-        }
-
-        if(updates > 0)
-            current->lastSegmentStateUpdate = rclcpp::Time(now);
-    }
 }
 
 void Control::control_update() try {
