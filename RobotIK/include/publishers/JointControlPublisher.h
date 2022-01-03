@@ -42,6 +42,9 @@ namespace robotik {
         /// non-transmission joints to the joint controllers.
         void set_joints(const std::vector<std::string>& joint_names);
 
+        // todo: joint_effort is being updated every loop for every joint, this could probably be done better
+        void set_joint_effort(std::vector<std::string> joints, double effort, double epsilon = 0.0001);
+
         [[nodiscard]] inline const std::shared_ptr<JointState>& state() const { return state_; }
         [[nodiscard]] inline std::shared_ptr<JointState>& state() { return state_; }
 

@@ -81,6 +81,23 @@ void JointControlPublisher::set_joints(const std::vector<std::string> &joint_nam
     joint_ordinal_map.resize(N);
 }
 
+void JointControlPublisher::set_joint_effort(std::vector<std::string> joints, double effort, double epsilon)
+{
+    for(int i=0, _i=joint_trajectory_msg_->joint_names.size(); i < _i; i++) {
+        auto& j_name = joint_trajectory_msg_->joint_names[i];
+        // we can just check epsilon first, if effort doesnt change we dont have to binary search by name
+        if(fabs(joint_efforts_msg_->data[i] - effort) < epsilon)
+            continue;
+        auto itr = std::find(joints.begin(), joints.end(), j_name);
+        if(itr != joints.end()) {
+            // joint found in set, this joint should be set...
+            // and we already checked for epsilon
+            joint_efforts_msg_->data[i] = effort;
+            efforts_updated = true;
+        }
+    }
+}
+
 JointControlPublisher::CallbackReturn JointControlPublisher::on_activate()
 {
     if(joint_trajectory_pub_)
