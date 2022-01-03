@@ -843,7 +843,7 @@ trajectory::Expression Control::expression_from_msg(
         tf.reference_frame = FrameRef(FrameRef::Odometry, model_->odom_link);
     else if(tf.reference_frame.name == model_->base_link)
         tf.reference_frame = FrameRef(FrameRef::Robot, model_->base_link);
-    else if(tf.reference_frame.name == "world")
+    else if(tf.reference_frame.name == robotik::world_link)
         tf.reference_frame = FrameRef(FrameRef::World);
 
     // if the name of our reference frame is blank, fill it with the default

@@ -15,6 +15,7 @@
 
 namespace robotik {
 
+const std::string world_link = "world";
 
 Model::Model()
     : odom_link("odom"), footprint_link("base_footprint"), base_link("base_link"), imu_link("imu_link"),
@@ -284,8 +285,8 @@ void Model::publishFixedTransforms(rclcpp::Time now, std::string prefix)
     if(!prefix.empty()) {
         // send a world transform between the root tf namespace and ours
         geometry_msgs::msg::TransformStamped tf_transform;
-        tf_transform.header.frame_id = "world";
-        tf_transform.child_frame_id = prefix + tf_transform.header.frame_id;
+        tf_transform.header.frame_id = world_link;
+        tf_transform.child_frame_id = prefix + world_link;
         tf_transforms.push_back(tf_transform);
     }
 
@@ -900,7 +901,7 @@ void Model::updateNailedContacts(State& state) {
 
         // update base and all inner robot segments
         for (auto &tf: state.tf) {
-            if (tf.first != odom_link && tf.first != "world") {
+            if (tf.first != odom_link && tf.first != world_link) {
                 // offset joints
                 tf.second.p -= avg_contact_diff;
             }

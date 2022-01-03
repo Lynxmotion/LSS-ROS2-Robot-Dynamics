@@ -26,6 +26,8 @@ namespace robotik {
 
     class State;
 
+    extern const std::string world_link;
+
     ///@brief Stores information about segments in a KDL tree
     /// borrowed from Ros RobotStatePublisher
     class SegmentPair final
