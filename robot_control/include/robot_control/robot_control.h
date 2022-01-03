@@ -27,7 +27,7 @@
 #include <limb.h>
 #include <raf.h>
 #include <kinematics.h>
-#include <robot_control/trajectory/action.h>
+#include <robot_control/trajectory/single-effector.h>
 #include <listeners/JointStateListener.h>
 #include <listeners/ModelStateListener.h>
 #include <publishers/JointControlPublisher.h>
