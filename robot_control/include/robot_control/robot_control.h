@@ -15,7 +15,11 @@
 #include "diagnostic_msgs/msg/diagnostic_array.hpp"
 #include "std_msgs/msg/string.hpp"
 #include <std_srvs/srv/empty.hpp>
+
 #include "robot_model_msgs/msg/control_state.hpp"
+#include "robot_model_msgs/srv/reset.hpp"
+#include "robot_model_msgs/srv/configure_limb.hpp"
+#include "robot_model_msgs/srv/set_limb.hpp"
 
 #include <robotik.h>
 //#include "types.h"
@@ -176,6 +180,19 @@ protected:
     // extended joint controller publishers
     robot_model_msgs::msg::ControlState::SharedPtr control_state_msg_;
     rclcpp_lifecycle::LifecyclePublisher<robot_model_msgs::msg::ControlState>::SharedPtr control_state_pub_;
+
+    // Reset service
+    rclcpp::Service<robot_model_msgs::srv::Reset>::SharedPtr reset_service;
+    void reset_callback(const std::shared_ptr<robot_model_msgs::srv::Reset::Request> request,
+                                 std::shared_ptr<robot_model_msgs::srv::Reset::Response> response);
+
+    // Limb Services
+    rclcpp::Service<robot_model_msgs::srv::ConfigureLimb>::SharedPtr configure_limb_service;
+    rclcpp::Service<robot_model_msgs::srv::SetLimb>::SharedPtr set_limb_service;
+    void configure_limb_callback(const std::shared_ptr<robot_model_msgs::srv::ConfigureLimb::Request> request,
+                        std::shared_ptr<robot_model_msgs::srv::ConfigureLimb::Response> response);
+    void set_limb_callback(const std::shared_ptr<robot_model_msgs::srv::SetLimb::Request> request,
+                        std::shared_ptr<robot_model_msgs::srv::SetLimb::Response> response);
 
     // trajectory action
     rclcpp_action::Server<trajectory::EffectorTrajectory>::SharedPtr trajectory_action_server_;

@@ -174,6 +174,17 @@ Control::on_configure(const rclcpp_lifecycle::State &)
             10);
     control_state_msg_ = std::make_shared<robot_model_msgs::msg::ControlState>();
 
+    // reset service
+    reset_service = create_service<robot_model_msgs::srv::Reset>("~/reset",
+            std::bind(&Control::reset_callback, this, std::placeholders::_1, std::placeholders::_2));
+
+    // limb services
+    configure_limb_service = create_service<robot_model_msgs::srv::ConfigureLimb>("~/configure_limb",
+            std::bind(&Control::configure_limb_callback, this, std::placeholders::_1, std::placeholders::_2));
+    set_limb_service = create_service<robot_model_msgs::srv::SetLimb>("~/set_limb",
+            std::bind(&Control::set_limb_callback, this, std::placeholders::_1, std::placeholders::_2));
+
+
     auto frequency = get_parameter("frequency").get_value<float>();
     RCLCPP_INFO(get_logger(), "robot control loop set to %4.2fhz", frequency);
     update_timer_ = create_wall_timer(
@@ -857,6 +868,92 @@ trajectory::Expression Control::expression_from_msg(
     return tf;
 }
 
+/*
+ *   Reset Service
+ */
+void Control::reset_callback(const std::shared_ptr<robot_model_msgs::srv::Reset::Request> request,
+         std::shared_ptr<robot_model_msgs::srv::Reset::Response> response) try
+{
+    if(request->target_state)
+        resetTarget(*current);
+    if(request->trajectories)
+        resetTrajectory();
+    if(request->limp) {
+        // set all limbs to limp
+        for(auto& l: limbs_) {
+            l.mode = robotik::Limb::Limp;
+        }
+    }
+    response->success = true;
+}
+catch (std::exception & e) {
+    RCLCPP_ERROR(get_logger(), "reset failed: %s", e.what());
+    response->success = false;
+}
+
+/*
+ *   Limb Services
+ */
+void Control::configure_limb_callback(const std::shared_ptr<robot_model_msgs::srv::ConfigureLimb::Request> request,
+                             std::shared_ptr<robot_model_msgs::srv::ConfigureLimb::Response> response) try
+{
+    if(request->limbs.empty()) {
+        response->success = false;
+        return;
+    }
+
+    bool has_type = request->limbs.size() == request->type.size();
+    bool has_origin = request->limbs.size() == request->origin.size();
+
+    for(int i=0, _i = request->limbs.size(); i < _i; i++) {
+        auto& limb = limbs_[request->limbs[i]];
+        if(has_type) {
+            limb.limbType = limb.model->options_.model = (robotik::Limb::DynamicModelType)request->type[i];
+        }
+        if(has_origin)
+            tf2::fromMsg(request->origin[i], limb.model->origin);
+    }
+
+    response->success = true;
+}
+catch (std::exception & e) {
+    RCLCPP_ERROR(get_logger(), "configure limb failed: %s", e.what());
+    response->success = false;
+}
+
+void Control::set_limb_callback(const std::shared_ptr<robot_model_msgs::srv::SetLimb::Request> request,
+                       std::shared_ptr<robot_model_msgs::srv::SetLimb::Response> response) try
+{
+    if(request->limbs.empty()) {
+        response->success = false;
+        return;
+    }
+
+    bool has_mode = request->limbs.size() == request->mode.size();
+    bool has_supportive = request->limbs.size() == request->supportive.size();
+    bool has_compliance = request->limbs.size() == request->compliance.size();
+
+    for(int i=0, _i = request->limbs.size(); i < _i; i++) {
+        auto& limb = limbs_[request->limbs[i]];
+        if(has_mode)
+            limb.mode = (robotik::Limb::Mode)request->mode[i];
+        if(has_supportive)
+            limb.supportive = request->supportive[i];
+        if(has_compliance)
+            limb.compliance = request->compliance[i];
+    }
+
+    response->success = true;
+}
+catch (std::exception & e) {
+    RCLCPP_ERROR(get_logger(), "set limb failed: %s", e.what());
+    response->success = false;
+}
+
+
+/*
+ *   Trajectory Actions
+ */
 rclcpp_action::GoalResponse Control::handle_trajectory_goal(
         const rclcpp_action::GoalUUID & uuid,
         std::shared_ptr<const trajectory::EffectorTrajectory::Goal> goal)

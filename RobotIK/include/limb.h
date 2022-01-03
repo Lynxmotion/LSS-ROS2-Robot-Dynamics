@@ -77,6 +77,9 @@ public:
         ///@brief true if this limb is currently being used to support the robot
         bool supporting;
 
+        ///@brief how soft this limb should react to forces against it
+        double compliance;
+
         ///@brief Current position of the end effector
         /// This frame is relative to the limb base frame (usually the base link).
         KDL::Frame position;
@@ -112,6 +115,9 @@ public:
 
     std::vector<std::string> joint_names;
     std::vector<std::string> segment_names;
+
+    ///@brief Origin from which limb coordinates will be given (relative to robot base)
+    KDL::Frame origin;
 
     ///@brief The friction between this limb and the ground/floor surface
     Friction friction;
