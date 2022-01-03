@@ -65,10 +65,6 @@ public:
         ///@brief What control mode this end-effector is currently in
         Mode mode;
 
-        ///@brief Indicates if Limb is a leg, arm or other generic limb.
-        /// This is copied from the model limb details.
-        DynamicModelType limbType;
-
         ///@brief true if this limb can be used to support the robot
         /// This flag indicates if this limb can be recruited to support the robot. If false, the modes BalanceSupport,
         /// and Stepping would be invalid.

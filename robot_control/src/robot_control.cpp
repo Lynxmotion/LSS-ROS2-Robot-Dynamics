@@ -397,7 +397,7 @@ void Control::publish_control_state() try
         auto& leg_model = *sl.model;
         ml.name = leg_model.options_.to_link;
         ml.mode = sl.mode;
-        ml.type = sl.limbType;
+        ml.type = leg_model.options_.model;
         ml.supportive = sl.supportive;
         ml.supporting = supporting[i];
         tf2::toMsg(leg_model.origin, ml.origin);
@@ -911,7 +911,7 @@ void Control::configure_limb_callback(const std::shared_ptr<robot_model_msgs::sr
     for(int i=0, _i = request->limbs.size(); i < _i; i++) {
         auto& limb = limbs_[request->limbs[i]];
         if(has_type) {
-            limb.limbType = limb.model->options_.model = (robotik::Limb::DynamicModelType)request->type[i];
+            limb.model->options_.model = (robotik::Limb::DynamicModelType)request->type[i];
         }
         if(has_origin)
             tf2::fromMsg(request->origin[i], limb.model->origin);

@@ -223,17 +223,17 @@ void Limb::loadSupportPolygon(urdf::ModelInterfaceSharedPtr urdf_model_) {
 }
 
 Limb::State::State()
-: mode(Limp), limbType(Generic), supportive(false), supporting(false)
+: mode(Limp), supportive(false), supporting(false)
 {
 }
 
 Limb::State::State(Limb::SharedPtr _model, Mode _mode)
-: model(_model), mode(_mode), limbType(_model->options_.model), supportive(_model->options_.model == Leg), supporting(false)
+: model(_model), mode(_mode), supportive(_model->options_.model == Leg), supporting(false)
 {
 }
 
 Limb::State::State(Limb::SharedPtr _model, Mode _mode, bool _supportive)
-: model(_model), mode(_mode), limbType(_model->options_.model), supportive(_supportive), supporting(false)
+: model(_model), mode(_mode), supportive(_supportive), supporting(false)
 {
 }
 
@@ -241,7 +241,7 @@ Limb::State::State(Limb::SharedPtr _model, Mode _mode, bool _supportive)
 void Limbs::zero()
 {
     for(auto& limb: *this) {
-        limb.mode = (limb.limbType == Limb::Leg) ? Limb::Holding : Limb::Limp;
+        limb.mode = (limb.model->options_.model == Limb::Leg) ? Limb::Holding : Limb::Limp;
         limb.position = KDL::Frame();
         limb.velocity = KDL::Twist();
         limb.target = KDL::Frame();
