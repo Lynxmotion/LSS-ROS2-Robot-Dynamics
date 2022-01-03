@@ -10,9 +10,10 @@
 #include "model.h"
 
 #include <rclcpp_action/rclcpp_action.hpp>
-#include <robot_model_msgs/action/coordinated_effector_trajectory.hpp>
-
 #include <map>
+
+#include <robot_model_msgs/msg/trajectory_complete.hpp>
+#include <utility>
 
 namespace robotik::trajectory {
 
@@ -22,6 +23,13 @@ class TrajectoryActionInterface
 {
 public:
     using SharedPtr = std::shared_ptr<TrajectoryActionInterface>;
+
+    rclcpp_action::GoalUUID uuid;
+
+    inline void id(std::string _id_) { id_ = std::move(_id_); }
+    [[nodiscard]] inline std::string id() const { return id_; }
+
+    [[nodiscard]] virtual std::string type() const=0;
 
     /// Return the start and end time of this action
     [[nodiscard]] virtual TimeRange time_range() const=0;
@@ -56,6 +64,8 @@ public:
     /// update the client on the progress of the action
     virtual void send_feedback(const Limbs& limbs, const Model& model, const rclcpp::Time& now)=0;
 
+protected:
+    std::string id_;
 };
 
 class TrajectoryActionMember
@@ -68,6 +78,9 @@ public:
 
     inline explicit TrajectoryActionMember(double ts = 0.0)
     : ts(ts) {}
+
+    inline explicit TrajectoryActionMember(trajectory::Expression expr, double ts = 0.0)
+    : ts(ts), expression(std::move(expr)) {}
 
     [[nodiscard]] inline double duration() const {
         return segment.Duration();
@@ -88,7 +101,13 @@ class TrajectoryActions : public std::list<TrajectoryActionInterface::SharedPtr>
 public:
     void append(TrajectoryActionInterface::SharedPtr action);
 
-    void complete(std::string member_name,
+    bool complete(const rclcpp_action::GoalUUID uuid,
+                  Limbs& limbs,
+                  const Model& model,
+                  const rclcpp::Time& now,
+                  int code = robot_model_msgs::msg::TrajectoryComplete::SUCCESS);
+
+    bool complete(std::string member_name,
                   Limbs& limbs,
                   const Model& model,
                   const rclcpp::Time& now,

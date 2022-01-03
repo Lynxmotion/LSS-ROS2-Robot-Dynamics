@@ -16,6 +16,8 @@ namespace robotik {
 
 extern const std::string DEFAULT_COMPONENT_TOPIC_PREFIX;
 
+std::string generate_id(int length);
+
 constexpr unsigned long bit(unsigned short n) { return (((unsigned long)1)<<n); }
 
 constexpr unsigned long operator "" _bit(unsigned long long n) {

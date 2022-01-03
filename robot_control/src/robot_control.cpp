@@ -184,6 +184,24 @@ Control::on_configure(const rclcpp_lifecycle::State &)
     set_limb_service = create_service<robot_model_msgs::srv::SetLimb>("~/set_limb",
             std::bind(&Control::set_limb_callback, this, std::placeholders::_1, std::placeholders::_2));
 
+    // Trajectory Action Servers
+    if(!this->trajectory_action_server_) {
+        this->trajectory_action_server_ = rclcpp_action::create_server<robotik::trajectory::TrajectoryAction::EffectorTrajectory>(
+                this,
+                "~/trajectory",
+                std::bind(&Control::handle_trajectory_goal, this, std::placeholders::_1, std::placeholders::_2),
+                std::bind(&Control::handle_trajectory_cancel, this, std::placeholders::_1),
+                std::bind(&Control::handle_trajectory_accepted, this, std::placeholders::_1));
+    }
+
+    if(!this->coordinated_trajectory_action_server_) {
+        this->coordinated_trajectory_action_server_ = rclcpp_action::create_server<robotik::trajectory::CoordinatedTrajectoryAction::EffectorTrajectory>(
+                this,
+                "~/coordinated_trajectory",
+                std::bind(&Control::handle_coordinated_trajectory_goal, this, std::placeholders::_1, std::placeholders::_2),
+                std::bind(&Control::handle_coordinated_trajectory_cancel, this, std::placeholders::_1),
+                std::bind(&Control::handle_coordinated_trajectory_accepted, this, std::placeholders::_1));
+    }
 
     auto frequency = get_parameter("frequency").get_value<float>();
     RCLCPP_INFO(get_logger(), "robot control loop set to %4.2fhz", frequency);
@@ -296,15 +314,6 @@ Control::on_activate(const rclcpp_lifecycle::State &)
     }
 
     kinematics.activate(model_);
-
-    // Trajectory Action Server
-    this->trajectory_action_server_ = rclcpp_action::create_server<robotik::trajectory::TrajectoryAction::EffectorTrajectory>(
-            this,
-            "~/trajectory",
-            std::bind(&Control::handle_trajectory_goal, this, std::placeholders::_1, std::placeholders::_2),
-            std::bind(&Control::handle_trajectory_cancel, this, std::placeholders::_1),
-            std::bind(&Control::handle_trajectory_accepted, this, std::placeholders::_1));
-
 
     joint_control_publisher->on_activate();
     control_state_pub_->on_activate();
@@ -833,7 +842,6 @@ trajectory::Expression Control::expression_from_msg(
     auto ts = now.seconds() + (double)seg.start.sec + (double)seg.start.nanosec / 1e9;
     tf.start = ts;
     tf.duration = seg.duration;
-    tf.id = seg.id;
     tf.segment = seg.segment;
     tf.mix_mode = (trajectory::MixMode)seg.mix_mode;
     tf.path_expression = seg.path;
@@ -983,10 +991,12 @@ rclcpp_action::CancelResponse Control::handle_trajectory_cancel(
         const std::shared_ptr<robotik::trajectory::TrajectoryAction::GoalHandle> goal_handle)
 {
     auto& request = goal_handle->get_goal()->goal;
-    RCLCPP_INFO(get_logger(), "Received request to cancel goal for segment %s", request.segment.segment.c_str());
+    RCLCPP_INFO(get_logger(), "Received request to cancel trajectory %s for segment %s",
+            request.id.c_str(),
+            request.segment.segment.c_str());
 
     actions.complete(
-            request.segment.segment,
+            goal_handle->get_goal_id(),
             limbs_,
             *model_,
             lastUpdate,
@@ -994,9 +1004,11 @@ rclcpp_action::CancelResponse Control::handle_trajectory_cancel(
     return rclcpp_action::CancelResponse::ACCEPT;
 }
 
-void Control::handle_trajectory_accepted(const std::shared_ptr<robotik::trajectory::TrajectoryAction::GoalHandle> goal_handle)
+void Control::handle_trajectory_accepted(
+        const std::shared_ptr<robotik::trajectory::TrajectoryAction::GoalHandle> goal_handle)
 {
     auto& request = goal_handle->get_goal()->goal;
+    auto& uuid = goal_handle->get_goal_id();
 
     // set the absolute time
     rclcpp::Time now;
@@ -1018,9 +1030,96 @@ void Control::handle_trajectory_accepted(const std::shared_ptr<robotik::trajecto
             robot_model_msgs::msg::TrajectoryComplete::PREEMPTED);
 
     // add the new action
-    actions.append(std::make_shared<trajectory::TrajectoryAction>(expr, goal_handle));
+    auto action = std::make_shared<trajectory::TrajectoryAction>(expr, goal_handle);
+    action->uuid = uuid;
+    if(!request.id.empty())
+        action->id(request.id);
+    actions.append(action);
 }
 
+
+/*
+ *   Coordinated Trajectory Action
+ */
+rclcpp_action::GoalResponse Control::handle_coordinated_trajectory_goal(
+        const rclcpp_action::GoalUUID & uuid,
+        std::shared_ptr<const robotik::trajectory::CoordinatedTrajectoryAction::EffectorTrajectory::Goal> goal)
+{
+    //RCLCPP_INFO(this->get_logger(), "Received goal request with order %d", goal->order);
+    (void)uuid;
+    auto& request = goal->goal;
+
+    if(!target) {
+        RCLCPP_INFO(get_logger(), "Cannot accept trajectory goals without an existing state");
+        return rclcpp_action::GoalResponse::REJECT; // no segment by this name
+    }
+
+    KDL::Frame f;
+    for(auto& m: request.segments) {
+        if(!target->findTF(m.segment, f)) {
+            RCLCPP_INFO(get_logger(), "Segment %s in goal request doesn't exist in state", m.segment.c_str());
+            return rclcpp_action::GoalResponse::REJECT; // no segment by this name
+        }
+    }
+
+    return rclcpp_action::GoalResponse::ACCEPT_AND_EXECUTE;
+}
+
+rclcpp_action::CancelResponse Control::handle_coordinated_trajectory_cancel(
+        const std::shared_ptr<robotik::trajectory::CoordinatedTrajectoryAction::GoalHandle> goal_handle)
+{
+    auto& request = goal_handle->get_goal()->goal;
+    RCLCPP_INFO(get_logger(), "Received request to cancel goal for coordinated trajectory %s",
+            request.id.c_str());
+
+    actions.complete(
+            goal_handle->get_goal_id(),
+            limbs_,
+            *model_,
+            lastUpdate,
+            robot_model_msgs::msg::TrajectoryComplete::CANCELLED);
+    return rclcpp_action::CancelResponse::ACCEPT;
+}
+
+void Control::handle_coordinated_trajectory_accepted(
+        const std::shared_ptr<robotik::trajectory::CoordinatedTrajectoryAction::GoalHandle> goal_handle)
+{
+    auto& request = goal_handle->get_goal()->goal;
+    auto& uuid = goal_handle->get_goal_id();
+
+    // set the absolute time
+    rclcpp::Time now;
+    if(request.header.stamp.sec) {
+        now = rclcpp::Time(request.header.stamp);
+    } else {
+        RCLCPP_WARN_ONCE(get_logger(), "trajectory publisher is not setting header timestamp");
+        now = lastUpdate;
+    }
+
+    std::vector<trajectory::Expression> expressions;
+    for(const auto& e: request.segments) {
+        // cancel any existing actions for this segment
+        actions.complete(
+                e.segment,
+                limbs_,
+                *model_,
+                now,
+                robot_model_msgs::msg::TrajectoryComplete::PREEMPTED);
+
+        // parse the expression
+        expressions.emplace_back(expression_from_msg(e, model_->odom_link, now));
+    }
+
+    // add the new action
+    auto action = std::make_shared<trajectory::CoordinatedTrajectoryAction>(
+            expressions,
+            request.sync_duration,
+            goal_handle);
+    action->uuid = uuid;
+    if(!request.id.empty())
+        action->id(request.id);
+    actions.append(action);
+}
 
 
 }  //ns: robot_dynamics

@@ -19,6 +19,10 @@ TrajectoryAction::TrajectoryAction(const trajectory::Expression& expr, std::shar
     }
 }
 
+std::string TrajectoryAction::type() const {
+    return "Single";
+}
+
 TimeRange TrajectoryAction::time_range() const
 {
     double duration = (state == Rendered)
@@ -81,7 +85,7 @@ void TrajectoryAction::complete(Limbs& limbs, const Model&, const rclcpp::Time&,
     //result->result.position = tf2::kdlToTransform(limb.target).transform;
     //result->result.velocity = tf2::kdlToTransform(limb.target).transform;
     result->result.effectors.emplace_back(member.expression.segment);
-    result->result.duration = (float)member.segment.Duration();;
+    result->result.duration = (float)member.segment.Duration();
     result->result.code = code;
     result->result.value = 0.0;
     if(code >=0)
@@ -126,9 +130,7 @@ void TrajectoryAction::send_feedback(const Limbs& limbs, const Model&, const rcl
     fb.effectors.emplace_back(member.expression.segment);
     fb.transforms.emplace_back(tf2::kdlToTransform(limb.model->origin.Inverse() * limb.target).transform);
     fb.progress = constrain(0.0f, (float)(t - member.ts) / fb.duration, 1.0f);
-    fb.id = member.expression.id;
-    fb.acceleration = 0.0;
-    fb.velocity = 0.0;
+    fb.id = id_;
     goal_handle_->publish_feedback(feedback_);
 }
 

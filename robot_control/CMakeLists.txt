@@ -1,6 +1,19 @@
 
-set(INCLUDE_FILES trajectory/environment.h trajectory/expression.h trajectory/rendering.h trajectory/action.h trajectory/single-effector.h)
-set(SOURCE_FILES robot_control.cpp trajectory/expression.cpp trajectory/rendering.cpp trajectory/action.cpp trajectory/single-effector.cpp)
+set(INCLUDE_FILES
+        robot_control.h
+        trajectory/environment.h
+        trajectory/expression.h
+        trajectory/rendering.h
+        trajectory/action.h
+        trajectory/single-effector.h
+        trajectory/coordinated-effectors.h)
+set(SOURCE_FILES
+        robot_control.cpp
+        trajectory/expression.cpp
+        trajectory/rendering.cpp
+        trajectory/action.cpp
+        trajectory/single-effector.cpp
+        trajectory/coordinated-effectors.cpp)
 
 list(TRANSFORM INCLUDE_FILES PREPEND include/robot_control/)
 list(TRANSFORM SOURCE_FILES PREPEND src/)

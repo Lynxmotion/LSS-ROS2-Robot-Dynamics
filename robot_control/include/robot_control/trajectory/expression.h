@@ -72,9 +72,6 @@ public:
     // could attach a unit to this and then the unit can be a pacing symbol
     double duration;
 
-    // (optional) an id to associate with the trajectory
-    std::string id;
-
     // the segment name to move
     std::string segment;    // todo: maybe segment name not needed in Expression object
 

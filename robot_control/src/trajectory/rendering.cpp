@@ -277,7 +277,7 @@ double RenderedSegment::render(Expression& expr, KDL::Frame initial_p, Rendering
 
     if(std::numeric_limits<double>::infinity() == traj->Duration()) {
         // todo: handle trajectories that have infinite duration
-        printf("warning: trajectory %s for segment %s has infinite duration\n", expr.id.c_str(), expr.segment.c_str());
+        printf("warning: trajectory for segment %s has infinite duration\n", expr.segment.c_str());
         expr.state = Infinite;
     } else {
         expr.state = Rendered;

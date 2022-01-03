@@ -2,24 +2,27 @@
 // Created by guru on 1/3/22.
 //
 
-#ifndef ROBOT_DYNAMICS_SINGLE_EFFECTOR_H
-#define ROBOT_DYNAMICS_SINGLE_EFFECTOR_H
+#ifndef ROBOT_DYNAMICS_COORDINATED_EFFECTORS_H
+#define ROBOT_DYNAMICS_COORDINATED_EFFECTORS_H
 
 #include <robot_control/trajectory/action.h>
 
-#include <robot_model_msgs/action/effector_trajectory.hpp>
+#include <robot_model_msgs/action/coordinated_effector_trajectory.hpp>
 
 namespace robotik::trajectory {
 
-class TrajectoryAction : public TrajectoryActionInterface
+class CoordinatedTrajectoryAction : public TrajectoryActionInterface
 {
 public:
-    using EffectorTrajectory = robot_model_msgs::action::EffectorTrajectory;
+    using EffectorTrajectory = robot_model_msgs::action::CoordinatedEffectorTrajectory;
     using GoalHandle = rclcpp_action::ServerGoalHandle<EffectorTrajectory>;
 
-    inline TrajectoryAction(): state(Pending) {}
+    inline CoordinatedTrajectoryAction(): state(Pending) {}
 
-    TrajectoryAction(const trajectory::Expression& expr, std::shared_ptr<GoalHandle> goal_handle);
+    CoordinatedTrajectoryAction(
+            const std::vector<trajectory::Expression>& expressions,
+            bool sync_duration,
+            std::shared_ptr<GoalHandle> goal_handle);
 
     [[nodiscard]] std::string type() const override;
 
@@ -57,12 +60,13 @@ public:
     void send_feedback(const Limbs& limbs, const Model& model, const rclcpp::Time& now) override;
 
 protected:
-    TrajectoryActionMember member;
     trajectory::RenderState state;
+    bool sync_duration_;
+    std::list<TrajectoryActionMember> members;
     std::shared_ptr<GoalHandle> goal_handle_;
     std::shared_ptr<EffectorTrajectory::Feedback> feedback_;
 };
 
 } //ns:robotik::trajectory
 
-#endif //ROBOT_DYNAMICS_SINGLE_EFFECTOR_H
+#endif //ROBOT_DYNAMICS_COORDINATED_EFFECTORS_H
