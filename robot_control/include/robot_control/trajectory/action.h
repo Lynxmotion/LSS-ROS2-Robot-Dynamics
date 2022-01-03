@@ -21,6 +21,46 @@ using EffectorTrajectory = robot_model_msgs::action::EffectorTrajectory;
 using GoalHandle = rclcpp_action::ServerGoalHandle<EffectorTrajectory>;
 using TimeRange = range_t<double>;
 
+class TrajectoryActionInterface
+{
+public:
+    using SharedPtr = std::shared_ptr<TrajectoryActionInterface>;
+
+    /// Return the start and end time of this action
+    [[nodiscard]] virtual TimeRange time_range() const=0;
+
+    [[nodiscard]] virtual trajectory::RenderState render_state() const=0;
+
+    virtual bool render(const Limbs& limbs, const Model& model, RenderingInterface& env)=0;
+
+    /// Apply the action request to the given state
+    virtual void apply(Limbs& limbs, const Model& model, double ts)=0;
+
+    /// tell the client this action has completed
+    virtual void complete(
+            Limbs& limbs,
+            const Model& model,
+            const rclcpp::Time& now,
+            int code = robot_model_msgs::msg::TrajectoryComplete::SUCCESS)=0;
+
+    /// tell the client a member of this action is being cancelled
+    /// Other members are still being controlled and progress on those members will continue. If there are no other
+    /// members remaining then the entire action will be cancelled using the `cancel(state, now)` function.
+    /// It is ok, to call this function with any member_name and those not in this action group will be ignored with
+    /// nothing sent to the client.
+    /// returns true if all members have expired and this action has thus been entirely cancelled
+    virtual bool complete(
+            std::string member_name,
+            Limbs& limbs,
+            const Model& model,
+            const rclcpp::Time& now,
+            int code = robot_model_msgs::msg::TrajectoryComplete::SUCCESS)=0;
+
+    /// update the client on the progress of the action
+    virtual void send_feedback(const Limbs& limbs, const Model& model, const rclcpp::Time& now)=0;
+
+};
+
 class TrajectoryActionMember
 {
 public:
@@ -46,31 +86,29 @@ public:
 
 };
 
-class TrajectoryAction
+class TrajectoryAction : public TrajectoryActionInterface
 {
 public:
-    using SharedPtr = std::shared_ptr<TrajectoryAction>;
-
     inline TrajectoryAction(): state(Pending) {}
 
     TrajectoryAction(const trajectory::Expression& expr, std::shared_ptr<trajectory::GoalHandle> goal_handle);
 
     /// Return the start and end time of this action
-    [[nodiscard]] TimeRange time_range() const;
+    [[nodiscard]] TimeRange time_range() const override;
 
-    [[nodiscard]] inline trajectory::RenderState render_state() const { return state; }
+    [[nodiscard]] trajectory::RenderState render_state() const override;
 
-    bool render(const Limbs& limbs, const Model& model, RenderingInterface& env);
+    bool render(const Limbs& limbs, const Model& model, RenderingInterface& env) override;
 
     /// Apply the action request to the given state
-    void apply(Limbs& limbs, const Model& model, double ts);
+    void apply(Limbs& limbs, const Model& model, double ts) override;
 
     /// tell the client this action has completed
     void complete(
             Limbs& limbs,
             const Model& model,
             const rclcpp::Time& now,
-            int code = robot_model_msgs::msg::TrajectoryComplete::SUCCESS);
+            int code = robot_model_msgs::msg::TrajectoryComplete::SUCCESS) override;
 
     /// tell the client a member of this action is being cancelled
     /// Other members are still being controlled and progress on those members will continue. If there are no other
@@ -83,10 +121,10 @@ public:
             Limbs& limbs,
             const Model& model,
             const rclcpp::Time& now,
-            int code = robot_model_msgs::msg::TrajectoryComplete::SUCCESS);
+            int code = robot_model_msgs::msg::TrajectoryComplete::SUCCESS) override;
 
     /// update the client on the progress of the action
-    void send_feedback(const Limbs& limbs, const Model& model, const rclcpp::Time& now);
+    void send_feedback(const Limbs& limbs, const Model& model, const rclcpp::Time& now) override;
 
 protected:
     TrajectoryActionMember member;
@@ -95,10 +133,10 @@ protected:
     std::shared_ptr<trajectory::EffectorTrajectory::Feedback> feedback_;
 };
 
-class TrajectoryActions : public std::list<TrajectoryAction::SharedPtr>
+class TrajectoryActions : public std::list<TrajectoryActionInterface::SharedPtr>
 {
 public:
-    TrajectoryAction::SharedPtr append(TrajectoryAction::SharedPtr action);
+    TrajectoryAction::SharedPtr append(TrajectoryActionInterface::SharedPtr action);
 
     void complete(std::string member_name,
                   Limbs& limbs,

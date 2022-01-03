@@ -27,6 +27,11 @@ TimeRange TrajectoryAction::time_range() const
     return { member.ts, member.ts + duration };
 }
 
+trajectory::RenderState TrajectoryAction::render_state() const
+{
+    return state;
+}
+
 bool TrajectoryAction::render(const Limbs& limbs, const Model&, RenderingInterface& env)
 {
     auto& limb = limbs[member.expression.segment];
@@ -129,7 +134,7 @@ void TrajectoryAction::send_feedback(const Limbs& limbs, const Model&, const rcl
 
 
 
-TrajectoryAction::SharedPtr TrajectoryActions::append(TrajectoryAction::SharedPtr action)
+TrajectoryAction::SharedPtr TrajectoryActions::append(TrajectoryActionInterface::SharedPtr action)
 {
     auto itr = insert(end(), action);
     if(itr == end())
