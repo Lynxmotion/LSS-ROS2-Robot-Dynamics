@@ -5,7 +5,10 @@
 #ifndef LSS_HUMANOID_CONVERSIONS_H
 #define LSS_HUMANOID_CONVERSIONS_H
 
-#include "imports.h"
+#include <geometry_msgs/msg/transform.hpp>
+#include <geometry_msgs/msg/pose.hpp>
+#include <geometry_msgs/msg/wrench.hpp>
+#include <geometry_msgs/msg/twist.hpp>
 #include <kdl/frames_io.hpp>
 
 // todo: move to CMake include test

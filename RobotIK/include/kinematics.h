@@ -8,6 +8,7 @@
 #include "model.h"
 #include "state.h"
 
+#include <kdl/chainiksolverpos_lma.hpp>
 
 namespace robotik {
 

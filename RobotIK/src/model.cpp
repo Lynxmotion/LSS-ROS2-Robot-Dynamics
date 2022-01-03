@@ -13,6 +13,10 @@
 #include <pcl/surface/convex_hull.h>
 #include <pcl/point_types.h>
 
+#include <tf2_kdl/tf2_kdl.h>
+#include <kdl_parser/kdl_parser.hpp>
+#include <kdl/treeidsolver_recursive_newton_euler.hpp>
+
 namespace robotik {
 
 const std::string world_link = "world";

@@ -6,7 +6,6 @@
 #include <model.h>
 #include <state.h>
 
-//#include <geometric_shapes/shape_operations.h>
 
 ///@brief Log information to console about limb and limb IK errors
 /// If defined, will log information about each limb Orokos Chain, and will output IK errors when they occur. If defined

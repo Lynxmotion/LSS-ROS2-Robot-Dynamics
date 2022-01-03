@@ -9,10 +9,17 @@
 #include "contact.h"
 #include "limb.h"
 
+#include <rclcpp/time.hpp>
+#include <kdl/jntarray.hpp>
+#include <kdl/frames.hpp>
+#include <kdl/treeidsolver.hpp>
 
 namespace robotik {
 
 class Model;
+
+using Names = std::vector<std::string>;
+using SegmentTransforms = std::map<std::string, KDL::Frame>;
 
 typedef enum {
     MeasuredState,

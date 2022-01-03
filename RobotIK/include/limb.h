@@ -4,9 +4,16 @@
 
 #pragma once
 
+#include <memory>
+
 #include "types.h"
-#include "imports.h"
 #include "friction.h"
+
+#include <kdl/tree.hpp>
+#include <kdl/jntarray.hpp>
+
+#include <urdf_model/model.h>
+#include <urdf_parser/urdf_parser.h>
 
 
 namespace robotik {
@@ -18,7 +25,6 @@ class Model;
 class Limb {
 public:
     using SharedPtr = std::shared_ptr<Limb>;
-    using Marker = visualization_msgs::msg::Marker;
 
     ///@brief A flag indicating what this limb is intended for
     /// Legs will be used primary for robot support and locomotion. Arms for object manipulation or if free may also be

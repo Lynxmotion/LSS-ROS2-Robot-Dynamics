@@ -4,6 +4,8 @@
 
 #include "robot_control/trajectory/action.h"
 
+#include <tf2_kdl/tf2_kdl.h>
+
 namespace robotik::trajectory {
 
 Action::Action(const trajectory::Expression& expr, std::shared_ptr<trajectory::GoalHandle> goal_handle)

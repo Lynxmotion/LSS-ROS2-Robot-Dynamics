@@ -6,8 +6,10 @@
 #define LSS_HUMANOID_TYPES_H
 
 #include <string>
+#include <vector>
+#include <map>
 
-#include <imports.h>
+#include <kdl/frames.hpp>
 
 
 namespace robotik {

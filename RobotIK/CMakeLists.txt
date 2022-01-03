@@ -2,7 +2,7 @@
 set(INCLUDE_FILES
         types.h model.h limb.h frame-ref.h
         contact.h state.h indexes.h
-        conversions.h imports.h exception.h
+        conversions.h exception.h
         friction.h
         kinematics.h
         listeners/JointStateListener.h

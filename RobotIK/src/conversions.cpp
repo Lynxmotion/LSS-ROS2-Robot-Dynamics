@@ -5,6 +5,10 @@
 #include <conversions.h>
 #include <iomanip>
 
+#include <geometry_msgs/msg/quaternion.hpp>
+#include <tf2/LinearMath/Quaternion.h>
+
+
 void kdl_vector_to_point(const KDL::Vector& src, geometry_msgs::msg::Point& dest) {
     dest.x = src.x();
     dest.y = src.y();

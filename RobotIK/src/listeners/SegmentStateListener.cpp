@@ -12,6 +12,8 @@
 #include <utility>
 #include "types.h"
 
+#include <tf2_kdl/tf2_kdl.h>
+
 namespace robotik {
 
 
