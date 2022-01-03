@@ -322,10 +322,17 @@ void Model::publishModelState(const State& state, rclcpp::Time now, std::string 
         prefix += '/';
     }
 
+
     model_state_msg_->header.frame_id = prefix + state.relativeFrameName;
     model_state_msg_->header.stamp = now;
     model_state_msg_->mass = state.mass;
     kdl_vector_to_vector(state.CoM, model_state_msg_->center_of_mass);
+
+    KDL::Frame world, odom;
+    if(state.findTF(world_link, world))
+        kdl_frame_to_transform(world, model_state_msg_->world);
+    if(state.findTF(odom_link, odom))
+        kdl_frame_to_transform(odom, model_state_msg_->odom);
 
     KDL::Frame base_f;
     if(state.findTF(base_link, base_f))
