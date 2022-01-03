@@ -16,6 +16,8 @@
 #include <fstream>
 #include <conversions.h>
 
+#include <tf2_kdl/tf2_kdl.h>
+
 #include "rclcpp_components/register_node_macro.hpp"
 
 // Register the component with class_loader.
