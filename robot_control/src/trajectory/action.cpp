@@ -119,7 +119,7 @@ void Action::send_feedback(const Limbs& limbs, const Model&, const rclcpp::Time&
     auto& fb = feedback_->progress;
     fb.duration = (float)duration;
     fb.segment = member.expression.segment;
-    fb.transform = tf2::kdlToTransform(limb.target).transform;
+    fb.transform = tf2::kdlToTransform(limb.model->origin.Inverse() * limb.target).transform;
     fb.progress = constrain(0.0f, (float)(t - member.ts) / fb.duration, 1.0f);
     fb.id = member.expression.id;
     fb.acceleration = 0.0;

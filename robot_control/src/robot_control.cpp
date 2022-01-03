@@ -339,9 +339,10 @@ Control::on_error(const rclcpp_lifecycle::State &)
     return rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn::SUCCESS;
 }
 
-void set_effector_msg(robot_model_msgs::msg::EffectorState& effector, const KDL::Frame& current_pose, const KDL::Frame& target_pose) {
-    kdl_frame_to_pose(current_pose, effector.pose);
-    kdl_frame_to_pose(target_pose, effector.target);
+void set_effector_msg(robot_model_msgs::msg::EffectorState& effector, const KDL::Frame& origin, const KDL::Frame& current_pose, const KDL::Frame& target_pose) {
+    KDL::Frame inverted_origin = origin.Inverse();
+    kdl_frame_to_pose(inverted_origin * current_pose, effector.pose);
+    kdl_frame_to_pose(inverted_origin * target_pose, effector.target);
     KDL::Vector dv = target_pose.p - current_pose.p;
     effector.error = std::sqrt(dv.x()*dv.x() + dv.y()*dv.y() + dv.z() * dv.z());
     effector.velocity.linear = geometry_msgs::msg::Vector3();
@@ -349,8 +350,8 @@ void set_effector_msg(robot_model_msgs::msg::EffectorState& effector, const KDL:
 }
 
 // when there is no target active
-void set_effector_msg(robot_model_msgs::msg::EffectorState& effector, const KDL::Frame& current) {
-    kdl_frame_to_pose(current, effector.pose);
+void set_effector_msg(robot_model_msgs::msg::EffectorState& effector, const KDL::Frame& origin, const KDL::Frame& current) {
+    kdl_frame_to_pose(origin.Inverse() * current, effector.pose);
     effector.velocity.linear = geometry_msgs::msg::Vector3();
     effector.velocity.angular = geometry_msgs::msg::Vector3();
     effector.target = effector.pose;
@@ -373,9 +374,9 @@ void Control::publish_control_state() try
 
     KDL::Frame target_base_tf;
     if(target->findTF(model_->base_link, target_base_tf)) {
-        set_effector_msg(control_state_msg_->base, current_base_tf, target_base_tf);
+        set_effector_msg(control_state_msg_->base, KDL::Frame(), current_base_tf, target_base_tf);
     } else
-        set_effector_msg(control_state_msg_->base, current_base_tf);
+        set_effector_msg(control_state_msg_->base, KDL::Frame(), current_base_tf);
 
 
     auto limb_count = (short)limbs_.size();
@@ -393,17 +394,19 @@ void Control::publish_control_state() try
     for(short i=0; i < limb_count; i++) {
         auto& ml = control_state_msg_->limbs[i];
         auto& sl = limbs_[i];
-        ml.name = model_->limbs[i]->options_.to_link;
+        auto& leg_model = *sl.model;
+        ml.name = leg_model.options_.to_link;
         ml.mode = sl.mode;
         ml.type = sl.limbType;
         ml.supportive = sl.supportive;
         ml.supporting = supporting[i];
+        tf2::toMsg(leg_model.origin, ml.origin);
 
 #if 1
         if(sl.mode != robotik::Limb::Limp)
-            set_effector_msg(ml.effector, sl.position, sl.target);
+            set_effector_msg(ml.effector, leg_model.origin, sl.position, sl.target);
         else
-            set_effector_msg(ml.effector, sl.position);
+            set_effector_msg(ml.effector, leg_model.origin, sl.position);
 #else
         kdl_frame_to_pose(sl.position, ml.effector.pose);
         // todo: add velocity to model state
