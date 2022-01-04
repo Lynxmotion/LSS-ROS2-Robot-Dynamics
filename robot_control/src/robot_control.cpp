@@ -553,6 +553,7 @@ void Control::resetTrajectory() {
     for(auto& action: actions) {
         action->complete(limbs_, *model_, lastUpdate, robot_model_msgs::msg::TrajectoryComplete::RESET );
     }
+    actions.clear();
 }
 
 
