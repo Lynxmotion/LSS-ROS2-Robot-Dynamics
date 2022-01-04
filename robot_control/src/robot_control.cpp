@@ -481,7 +481,7 @@ void Control::control_update() try {
         auto sinceJoints = _now - current->lastJointStateUpdate;
         if(sinceJoints.seconds() > 2.0) {
             // stale joint data
-            RCLCPP_WARN_THROTTLE(get_logger(), *get_clock(), 5, "joint state data is stale, disabling robot control!");
+            RCLCPP_WARN_THROTTLE(get_logger(), *get_clock(), 5000, "joint state data is stale, disabling robot control!");
             return;
         }
 
@@ -489,14 +489,14 @@ void Control::control_update() try {
         auto sinceModel = _now - current->lastSupportStateUpdate;
         if(sinceModel.seconds() > 2.0) {
             // stale robot model data
-            RCLCPP_WARN_THROTTLE(get_logger(), *get_clock(), 5, "robot model state is stale, disabling robot control!");
+            RCLCPP_WARN_THROTTLE(get_logger(), *get_clock(), 5000, "robot model state is stale, disabling robot control!");
             return;
         }
 
         // if we dont get the segment state from /tf and /tf_static we can
         // compute it using our model information
         if (!model_->compute_TF_CoM(*current)) {
-            RCLCPP_WARN_THROTTLE(get_logger(), *get_clock(), 5, "failed to compute segment TF data for current state");
+            RCLCPP_WARN_THROTTLE(get_logger(), *get_clock(), 5000, "failed to compute segment TF data for current state");
         }
         current->lastSegmentStateUpdate = _now;
 
@@ -638,7 +638,7 @@ bool Control::update_target(const State& current, rclcpp::Time _now) {
         resetTarget(current);
         if(!target)
             // failed to establish target state from current
-            RCLCPP_WARN_THROTTLE(get_logger(), *get_clock(), 5,  "failed to reset target state from current");
+            RCLCPP_WARN_THROTTLE(get_logger(), *get_clock(), 5000,  "failed to reset target state from current");
             return false;
     }
 
@@ -649,13 +649,13 @@ bool Control::update_target(const State& current, rclcpp::Time _now) {
 
     KDL::Frame current_base_tf;
     if(!current.findTF(model_->base_link, current_base_tf)) {
-        RCLCPP_WARN_ONCE(get_logger(), "failed to publish control state because state contains no base_link");
+        RCLCPP_WARN_THROTTLE(get_logger(), *get_clock(), 5000, "failed to publish control state because state contains no base_link");
         return false;
     }
 
     KDL::Frame target_base_tf;
     if(!target->findTF(model_->base_link, target_base_tf)) {
-        RCLCPP_WARN_ONCE(get_logger(), "failed to publish control state because target state contains no base_link");
+        RCLCPP_WARN_THROTTLE(get_logger(), *get_clock(), 5000, "failed to publish control state because target state contains no base_link");
         return false;
     }
 
