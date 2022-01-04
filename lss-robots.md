@@ -730,6 +730,9 @@ to become standalone nodes which can run on a desktop alongside RViz.
 - publishes ContactState
 - robot_dynamics can subscribe to ContactState and update the robot body (also fuse with IMU)
 - outsourcing contact detection means user can replace or enhance contact detection themselves
+              Collision Detection
+- Uses the URDF collision models to detect when robot will self-collide
+- possibly a part of the Contact State component - maybe
               Trajectory
 "The existing trajectory module will either be Awesome! or a complicated mess"
     ## It was a mess, I got rid of it in favor of simple actions ##
@@ -770,52 +773,42 @@ we could have a single limb action and coordinated (multiple) limb actions. We s
 for listeners and broadcasters since each action service class type requires custom action messages for goal, progress and result. However they
 must add into a single Action list since new actions must cancel any pre-existing limb operations.
     * Will the main Control class or Action service classes do the pre-existing search and cancel behavior? (I would rather Control class do it)
-    * First implement a single limb action service, keeping existing action service code in Control for now (Get the basic working)
-## NOTES
+# Final TODO
 - Relook at robot_control::publish_control_state (it might be wrong, especially the body effector)
-## Finalize TODO
-- In dynamics, maybe add floor/contact delta to odom instead of body, thus in control we take odom straight from current state
-    - for now, binding position only on target to current
-- add reset action to cancel out all active actions
-- Implement body/base effector(s)?
-- Implement limb relative origin?
-    - if so, then make the action messages progress transform relative to the origin
-- add an action for setting limb to limp
-
-- Make more listeners or broadcasters out of robot_control and control (to simplify combining these classes)
-- Combine robot_control and control into one class?
-- Determine abstract interface for Action, Actions class must use only this interface
-- Refactor the single action service into a class
-    - Control should now use this class and contain very little service code
-    - Control::update() uses actions list to update target state
-    - Control::update() checks for expired actions and sends completion
-    - Control::publish_progress() on a timer sends progress updates for all actions in the list (this may be set slower than normal update rate)
-- Add a coordinated action service
-- Topic for setting compliance, force or rigidity
-    - I think just a topic for these limb properties, possibly Control just subscribes to the ros2_controls interfaces to intercept any updates
-
-# REFACTOR NOTES
-* Add properties to ModelState
-    - odometry => world frame
-    - base_pose has odometry - could maybe seperate out into odom and body_orientation
-* Add properties to ControlState
-    - origin option to Control per limb?  it would be set via SRDF
-    - this is where programmable coordinate frames would be nice
 * Limbs should be read in from URDF/SRDF into Model, but copied to state/control during activation and used from there, no more model access needed
-    - but limbs are a shared ptr from Model
-    - more limbs can be created or disabled at runtime
 * implement the following missing parts:
     - LimbState::velocity
     - Contact::slippage - whatever this is supposed to be..a metric og how likely a limb will slip? or a measure of how much it has slipped?
-* I am subscribing and using /tf, and I am computing FK for segments...provide a parameter to choose one (may still want to get world/odom frame)
-    - can't really use TF topic to populate state segments since TF frames are relative to each parent
-* mode_state frame_id should not be odom, but probably blank (unless preview, etc)
-* limb state frames are relative to base, but limb::updateIK new_effector_pose is relative to odom (and it is changing to base rel internally)
-    - I added an argument to determine if its in odom frame (defaults to false, rel to body)
+- In dynamics, maybe add floor/contact delta to odom instead of body, thus in control we take odom straight from current state
+    - for now, binding position only on target to current
+- Implement body/base effector(s)?
+    - updating base effector may just update other limbs instead of the actual base (which is updated by IMU/contactor)
+- Make LifecycleStateService and ControllerManagerService for activating ros2_controls, etc
+## Active TODO
+- Refactor the single action service into a class
+    - Control should now use this class and contain very little service code
 
+
+# CONTROL ALGORITHM
+There is confusion between target state and limb state/request - er, whatever. Also target and thus trajectory get's out of sync with sensed
+state so something is missing in the target update loop. We need to simplify the control structure and develop the rules of how target state
+is synced with sensed state.
+## Base
+Base should always updated from current? Since limbs will determine base orientation I think it makes sense that quickly sensed base
+should follow any intended base target command. So if we command base pose...IK will update limb targets, but how do we then expect sensed base
+to hit commanded base?
+* I think base must be an Effector, like limb...so we command the base as effector, it doesnt update target though, only through IK and
+  joint updates does it feed back through sensed state and then to target state.
+## Limbs
+* Control component should copy limbs (refs) and then (later) an action can exist to create temp limbs. Model will only ever contain the URDF
+  defined limbs but the user can create and control temp/new ones.
+  	- Means all model publish or Limb functions would need to be refactored out or something - maybe not a bad thing. Create broadcaster classes.
+* Have a rigidity control per axis per limb. Each joint's stiffness will then be controlled based on the joint axis. Can have moving and holding stiffness.
+
+# ERRORS
 terminate called after throwing an instance of 'rclcpp::exceptions::RCLError'
   what():  goal_handle attempted invalid transition from state EXECUTING with event CANCELED, at /tmp/binarydeb/ros-galactic-rcl-action-3.1.2/src/rcl_action/goal_handle.c:95
-
+      ^^ might be caused by exception in publish()
 
 
 # Webots Simulation TODO
@@ -844,29 +837,11 @@ terminate called after throwing an instance of 'rclcpp::exceptions::RCLError'
   - https://www.newegg.com/p/1B4-08DB-000N7
 
 
-# CONTROL ALGORITHM
-There is confusion between target state and limb state/request - er, whatever. Also target and thus trajectory get's out of sync with sensed
-state so something is missing in the target update loop. We need to simplify the control structure and develop the rules of how target state
-is synced with sensed state.
-* In update loop, look at limb control mode (Limp, Holding, etc):
-	- if limp, then target follows current.state
-	- if holding, then target follows limb target and requires IK
-	- others?
-* Base should always updated from current? Since limbs will determine base orientation I think it makes sense that quickly sensed base
-  should follow any intended base target command. So if we command base pose...IK will update limb targets, but how do we then expect sensed base
-  to hit commanded base?
-  	- I think base must be an Effector, like limb...so we command the base as effector, it doesnt update target though, only through IK and
-  	  joint updates does it feed back through sensed state and then to target state.
-* Control component should copy limbs (refs) and then (later) an action can exist to create temp limbs. Model will only ever contain the URDF
-  defined limbs but the user can create and control temp/new ones.
-  	- Means all model publish or Limb functions would need to be refactored out or something - maybe not a bad thing. Create broadcaster classes.
-* Have a rigidity control per axis per limb. Each joint's stiffness will then be controlled based on the joint axis. Can have moving and holding stiffness.
 
 
 
 # SCHOOL DEMO
 - Finish walking algorithm
-- Remove reliance on Desktop
 - auto start Ros2 controllers
     - see this file for one way to start ros2 controllers
     - https://github.com/ros-planning/moveit2/blob/main/moveit_ros/moveit_servo/launch/servo_cpp_interface_demo.launch.py
