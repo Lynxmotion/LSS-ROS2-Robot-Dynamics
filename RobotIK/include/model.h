@@ -18,7 +18,6 @@
 #include <tf2_ros/static_transform_broadcaster.h>
 
 #include <robot_model_msgs/msg/model_state.hpp>
-#include <robot_model_msgs/msg/multi_segment_trajectory.hpp>
 #include <sensor_msgs/msg/imu.hpp>
 
 
