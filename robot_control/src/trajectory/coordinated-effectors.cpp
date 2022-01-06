@@ -167,7 +167,7 @@ void CoordinatedTrajectoryAction::send_feedback(const Limbs& limbs, const Model&
         fb.transforms.emplace_back(tf2::kdlToTransform(limb.model->origin.Inverse() * limb.target).transform);
     }
     fb.duration = (float)tr.span();
-    fb.progress = constrain(0.0f, (float)(t - tr.begin) / fb.duration, 1.0f);
+    fb.progress = (float)(t - tr.begin);
     fb.id = id();
     goal_handle_->publish_feedback(feedback_);
 }

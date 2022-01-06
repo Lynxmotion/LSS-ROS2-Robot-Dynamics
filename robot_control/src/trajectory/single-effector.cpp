@@ -130,7 +130,7 @@ void TrajectoryAction::send_feedback(const Limbs& limbs, const Model&, const rcl
     fb.duration = (float)duration;
     fb.effectors.emplace_back(member.expression.segment);
     fb.transforms.emplace_back(tf2::kdlToTransform(limb.model->origin.Inverse() * limb.target).transform);
-    fb.progress = constrain(0.0f, (float)(t - member.ts) / fb.duration, 1.0f);
+    fb.progress = (float)(t - member.ts);
     fb.id = id_;
     goal_handle_->publish_feedback(feedback_);
 }
