@@ -8,8 +8,10 @@
 
 namespace robotik::trajectory {
 
-TrajectoryAction::TrajectoryAction(const trajectory::Expression& expr, std::shared_ptr<GoalHandle> goal_handle)
-    : state(Pending)
+TrajectoryAction::TrajectoryAction(
+        Limbs& limbs, Model::SharedPtr& model,
+        const trajectory::Expression& expr, std::shared_ptr<GoalHandle> goal_handle)
+        : model_(std::move(model)), limb_(limbs[expr.segment]), state(Pending)
 {
     member.ts = expr.start;
     member.expression = expr;
@@ -20,7 +22,7 @@ TrajectoryAction::TrajectoryAction(const trajectory::Expression& expr, std::shar
 }
 
 std::string TrajectoryAction::type() const {
-    return "Single";
+    return "single";
 }
 
 TimeRange TrajectoryAction::time_range() const
@@ -36,28 +38,27 @@ trajectory::RenderState TrajectoryAction::render_state() const
     return state;
 }
 
-bool TrajectoryAction::render(const Limbs& limbs, const Model&, RenderingInterface& env)
+bool TrajectoryAction::render(RenderingInterface& env)
 {
-    auto& limb = limbs[member.expression.segment];
-    auto duration = member.segment.render(member.expression, limb.position, env);
-    std::cout << "rendered " << limb.model->options_.to_link << "    duration: " << duration << std::endl;
+    auto duration = member.segment.render(member.expression, limb_.position, env);
+    std::cout << "rendered " << limb_.model->options_.to_link << "    duration: " << duration << std::endl;
     state = Rendered;
     return duration > 0.0;
 }
 
-void TrajectoryAction::apply(Limbs& limbs, const Model&, double ts)
+void TrajectoryAction::apply(const rclcpp::Time& now)
 {
-    if(state != Rendered)
+    auto ts = now.seconds();
+    if(state != Rendered || ts < member.ts)
         return;
 
-    auto& limb = limbs[member.expression.segment];
     ts -= member.ts;        // convert time to beginning of rendered segment trajectory
-    limb.target = member.segment.Pos(ts);
-    limb.mode = Limb::Seeking;
-    std::cout << "    applied " << limb.model->options_.to_link << "    pos: " << ts << std::endl;
+    limb_.target = member.segment.Pos(ts);
+    limb_.mode = Limb::Seeking;
+    //std::cout << "    applied " << limb.model->options_.to_link << "    pos: " << ts << std::endl;
 }
 
-void TrajectoryAction::complete(Limbs& limbs, const Model&, const rclcpp::Time&, int code)
+void TrajectoryAction::complete(const rclcpp::Time&, int code)
 {
     if(!goal_handle_)
         return;
@@ -74,13 +75,11 @@ void TrajectoryAction::complete(Limbs& limbs, const Model&, const rclcpp::Time&,
     }
 #endif
 
-    auto& limb = limbs[member.expression.segment];
-
-    limb.mode = Limb::Holding;
+    limb_.mode = Limb::Holding;
 
     // signal complete
     auto result = std::make_shared<EffectorTrajectory::Result>();
-    result->result.transforms.emplace_back(tf2::kdlToTransform(limb.target).transform);
+    result->result.transforms.emplace_back(tf2::kdlToTransform(limb_.target).transform);
     // todo: add current position, velocity or error?
     //result->result.position = tf2::kdlToTransform(limb.target).transform;
     //result->result.velocity = tf2::kdlToTransform(limb.target).transform;
@@ -98,21 +97,28 @@ void TrajectoryAction::complete(Limbs& limbs, const Model&, const rclcpp::Time&,
     goal_handle_.reset();
     feedback_.reset();
 
-    std::cout << "    completed " << limb.model->options_.to_link << "    code: " << code << std::endl;
+    std::cout << "    completed " << limb_.model->options_.to_link << "    code: " << code << std::endl;
 }
 
-bool TrajectoryAction::complete(std::string member_name, Limbs& limbs, const Model& model, const rclcpp::Time& now, int code)
+bool TrajectoryAction::complete(std::string member_name, const rclcpp::Time& now, int code)
 {
     // ignore if it isnt the member we are controlling
     if(member_name != member.expression.segment)
         return false;
 
     // we only have one member, so cancel the entire action
-    complete(limbs, model, now, code);
+    complete(now, code);
     return true;
 }
 
-void TrajectoryAction::send_feedback(const Limbs& limbs, const Model&, const rclcpp::Time& now)
+TrajectoryActionInterface::CancelResponse TrajectoryAction::cancel(
+        const rclcpp::Time& now,
+        int code)
+{
+    return rclcpp_action::CancelResponse::ACCEPT;
+}
+
+void TrajectoryAction::send_feedback(const rclcpp::Time& now)
 {
     if(!goal_handle_)
         return;
@@ -123,13 +129,11 @@ void TrajectoryAction::send_feedback(const Limbs& limbs, const Model&, const rcl
     if(t < member.ts || t > member.ts + duration)
         return; // outside of range
 
-    auto& limb = limbs[member.expression.segment];
-
     // report progress
     auto& fb = feedback_->progress;
     fb.duration = (float)duration;
     fb.effectors.emplace_back(member.expression.segment);
-    fb.transforms.emplace_back(tf2::kdlToTransform(limb.model->origin.Inverse() * limb.target).transform);
+    fb.transforms.emplace_back(tf2::kdlToTransform(limb_.model->origin.Inverse() * limb_.target).transform);
     fb.progress = (float)(t - member.ts);
     fb.id = id_;
     goal_handle_->publish_feedback(feedback_);

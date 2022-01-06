@@ -17,11 +17,9 @@ public:
     using EffectorTrajectory = robot_model_msgs::action::CoordinatedEffectorTrajectory;
     using GoalHandle = rclcpp_action::ServerGoalHandle<EffectorTrajectory>;
 
-    inline CoordinatedTrajectoryAction(): state(Pending) {}
-
     CoordinatedTrajectoryAction(
+            Limbs& limbs, Model::SharedPtr model,
             const std::vector<trajectory::Expression>& expressions,
-            bool sync_duration,
             std::shared_ptr<GoalHandle> goal_handle);
 
     [[nodiscard]] std::string type() const override;
@@ -31,15 +29,13 @@ public:
 
     [[nodiscard]] trajectory::RenderState render_state() const override;
 
-    bool render(const Limbs& limbs, const Model& model, RenderingInterface& env) override;
+    bool render(RenderingInterface& env) override;
 
     /// Apply the action request to the given state
-    void apply(Limbs& limbs, const Model& model, double ts) override;
+    void apply(const rclcpp::Time& now) override;
 
     /// tell the client this action has completed
     void complete(
-            Limbs& limbs,
-            const Model& model,
             const rclcpp::Time& now,
             int code = robot_model_msgs::msg::TrajectoryComplete::SUCCESS) override;
 
@@ -51,20 +47,28 @@ public:
     /// returns true if all members have expired and this action has thus been entirely cancelled
     bool complete(
             std::string member_name,
-            Limbs& limbs,
-            const Model& model,
+            const rclcpp::Time& now,
+            int code = robot_model_msgs::msg::TrajectoryComplete::SUCCESS) override;
+
+    ///@brief Called to indicate the user requested this action be cancelled
+    CancelResponse cancel(
             const rclcpp::Time& now,
             int code = robot_model_msgs::msg::TrajectoryComplete::SUCCESS) override;
 
     /// update the client on the progress of the action
-    void send_feedback(const Limbs& limbs, const Model& model, const rclcpp::Time& now) override;
+    void send_feedback(const rclcpp::Time& now) override;
 
 protected:
+    Model::SharedPtr model_;
+    Limbs& limbs_;
     trajectory::RenderState state;
     bool sync_duration_;
     std::list<TrajectoryActionMember> members;
     std::shared_ptr<GoalHandle> goal_handle_;
     std::shared_ptr<EffectorTrajectory::Feedback> feedback_;
+
+    // compute the final result before completing or cancelling the action
+    std::shared_ptr<CoordinatedTrajectoryAction::EffectorTrajectory::Result> get_result(const rclcpp::Time&, int code);
 };
 
 } //ns:robotik::trajectory

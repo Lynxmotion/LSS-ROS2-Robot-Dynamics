@@ -522,7 +522,7 @@ void Control::publish_progress() try {
 
     rclcpp::Time _now = now();
     for(auto& action: actions) {
-        action->send_feedback(limbs_, *model_, _now);
+        action->send_feedback(_now);
     }
 
 } catch (std::exception & e) {
@@ -551,7 +551,7 @@ void Control::resetTarget(const State& current) {
 
 void Control::resetTrajectory() {
     for(auto& action: actions) {
-        action->complete(limbs_, *model_, lastUpdate, robot_model_msgs::msg::TrajectoryComplete::RESET );
+        action->complete(lastUpdate, robot_model_msgs::msg::TrajectoryComplete::RESET );
     }
     actions.clear();
 }
@@ -703,20 +703,20 @@ bool Control::update_target(const State& current, rclcpp::Time _now) {
                 rendering_env->state = &current;
             }
 
-            action->render(limbs_, *model_, *rendering_env);
+            action->render(*rendering_env);
 
             // since we rendered, get the updated time range
             tr = action->time_range();
-            std::cout << "rendered range is " << std::fixed << std::setprecision(4) << tr << std::endl;
+            std::cout << "rendered " << action->type() << ":" << action->id() << "   " << std::fixed << std::setprecision(4) << "  duration: " << tr.span() << std::endl;
 
         }
 
         // apply the action to the limb state
-        action->apply(limbs_, *model_, now_ts);
+        action->apply(_now);
 
         // if this action has expired, remove it
         if(now_ts > tr.end) {
-            action->complete(limbs_, *model_, _now);
+            action->complete(_now);
             expired.emplace_back(a);
         }
     }
@@ -998,8 +998,6 @@ rclcpp_action::CancelResponse Control::handle_trajectory_cancel(
 
     actions.complete(
             goal_handle->get_goal_id(),
-            limbs_,
-            *model_,
             lastUpdate,
             robot_model_msgs::msg::TrajectoryComplete::CANCELLED);
     return rclcpp_action::CancelResponse::ACCEPT;
@@ -1025,13 +1023,13 @@ void Control::handle_trajectory_accepted(
     // cancel any existing actions for this segment
     actions.complete(
             expr.segment,
-            limbs_,
-            *model_,
             now,
             robot_model_msgs::msg::TrajectoryComplete::PREEMPTED);
 
     // add the new action
-    auto action = std::make_shared<trajectory::TrajectoryAction>(expr, goal_handle);
+    auto action = std::make_shared<trajectory::TrajectoryAction>(
+            limbs_, model_,
+            expr, goal_handle);
     action->uuid = uuid;
     if(!request.id.empty())
         action->id(request.id);
@@ -1075,8 +1073,6 @@ rclcpp_action::CancelResponse Control::handle_coordinated_trajectory_cancel(
 
     actions.complete(
             goal_handle->get_goal_id(),
-            limbs_,
-            *model_,
             lastUpdate,
             robot_model_msgs::msg::TrajectoryComplete::CANCELLED);
     return rclcpp_action::CancelResponse::ACCEPT;
@@ -1102,8 +1098,6 @@ void Control::handle_coordinated_trajectory_accepted(
         // cancel any existing actions for this segment
         actions.complete(
                 e.segment,
-                limbs_,
-                *model_,
                 now,
                 robot_model_msgs::msg::TrajectoryComplete::PREEMPTED);
 
@@ -1113,8 +1107,8 @@ void Control::handle_coordinated_trajectory_accepted(
 
     // add the new action
     auto action = std::make_shared<trajectory::CoordinatedTrajectoryAction>(
+            limbs_, model_,
             expressions,
-            request.sync_duration,
             goal_handle);
     action->uuid = uuid;
     if(!request.id.empty())

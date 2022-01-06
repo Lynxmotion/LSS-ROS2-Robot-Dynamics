@@ -25,6 +25,7 @@ class TrajectoryActionInterface
 {
 public:
     using SharedPtr = std::shared_ptr<TrajectoryActionInterface>;
+    using CancelResponse = rclcpp_action::CancelResponse;
 
     rclcpp_action::GoalUUID uuid;
 
@@ -38,15 +39,13 @@ public:
 
     [[nodiscard]] virtual trajectory::RenderState render_state() const=0;
 
-    virtual bool render(const Limbs& limbs, const Model& model, RenderingInterface& env)=0;
+    virtual bool render(RenderingInterface& env)=0;
 
     /// Apply the action request to the given state
-    virtual void apply(Limbs& limbs, const Model& model, double ts)=0;
+    virtual void apply(const rclcpp::Time& now)=0;
 
     /// tell the client this action has completed
     virtual void complete(
-            Limbs& limbs,
-            const Model& model,
             const rclcpp::Time& now,
             int code = robot_model_msgs::msg::TrajectoryComplete::SUCCESS)=0;
 
@@ -58,13 +57,16 @@ public:
     /// returns true if all members have expired and this action has thus been entirely cancelled
     virtual bool complete(
             std::string member_name,
-            Limbs& limbs,
-            const Model& model,
+            const rclcpp::Time& now,
+            int code = robot_model_msgs::msg::TrajectoryComplete::SUCCESS)=0;
+
+    ///@brief Called to indicate the user requested this action be cancelled
+    virtual CancelResponse cancel(
             const rclcpp::Time& now,
             int code = robot_model_msgs::msg::TrajectoryComplete::SUCCESS)=0;
 
     /// update the client on the progress of the action
-    virtual void send_feedback(const Limbs& limbs, const Model& model, const rclcpp::Time& now)=0;
+    virtual void send_feedback(const rclcpp::Time& now)=0;
 
 protected:
     std::string id_;
@@ -104,14 +106,10 @@ public:
     void append(TrajectoryActionInterface::SharedPtr action);
 
     bool complete(const rclcpp_action::GoalUUID uuid,
-                  Limbs& limbs,
-                  const Model& model,
                   const rclcpp::Time& now,
                   int code = robot_model_msgs::msg::TrajectoryComplete::SUCCESS);
 
     bool complete(std::string member_name,
-                  Limbs& limbs,
-                  const Model& model,
                   const rclcpp::Time& now,
                   int code = robot_model_msgs::msg::TrajectoryComplete::SUCCESS);
 };

@@ -9,11 +9,13 @@
 namespace robotik::trajectory {
 
 CoordinatedTrajectoryAction::CoordinatedTrajectoryAction(
+        Limbs& limbs, Model::SharedPtr model,
         const std::vector<trajectory::Expression>& expressions,
-        bool sync_duration,
         std::shared_ptr<CoordinatedTrajectoryAction::GoalHandle> goal_handle)
-    : state(Pending), sync_duration_(sync_duration)
+    : model_(std::move(model)), limbs_(limbs), state(Pending)
 {
+    auto goal = goal_handle->get_goal();
+    sync_duration_ = goal->goal.sync_duration;
     for(const auto& expr: expressions) {
         members.emplace_back(expr, expr.start);
     }
@@ -24,7 +26,7 @@ CoordinatedTrajectoryAction::CoordinatedTrajectoryAction(
 }
 
 std::string CoordinatedTrajectoryAction::type() const {
-    return "Coordinated";
+    return "coordinated";
 }
 
 TimeRange CoordinatedTrajectoryAction::time_range() const
@@ -51,39 +53,38 @@ trajectory::RenderState CoordinatedTrajectoryAction::render_state() const
     return state;
 }
 
-bool CoordinatedTrajectoryAction::render(const Limbs& limbs, const Model&, RenderingInterface& env)
+bool CoordinatedTrajectoryAction::render(RenderingInterface& env)
 {
     for(auto& m: members) {
-        auto& limb = limbs[m.expression.segment];
+        auto& limb = limbs_[m.expression.segment];
         m.segment.render(m.expression, limb.position, env);
     }
-    auto tr = time_range();
-    std::cout << "rendered coordinated " << id() << "    duration: " << tr.span() << std::endl;
     state = Rendered;
+    auto tr = time_range();
+    //std::cout << "rendered coordinated " << id() << "    duration: " << tr.span() << std::endl;
     return tr.span();
 }
 
-void CoordinatedTrajectoryAction::apply(Limbs& limbs, const Model&, double ts)
+void CoordinatedTrajectoryAction::apply(const rclcpp::Time& now)
 {
     if(state != Rendered)
         return;
+    double ts = now.seconds();
 
     for(auto& m: members) {
-        auto& limb = limbs[m.expression.segment];
+        auto& limb = limbs_[m.expression.segment];
         double l_ts = ts - m.ts;        // convert time to beginning of rendered segment trajectory
         if(l_ts > 0) {
             limb.target = m.segment.Pos(l_ts);
             limb.mode = Limb::Seeking;
-            std::cout << "    applied coordinated " << id() << ":" << limb.model->options_.to_link + "   pos: " << ts << std::endl;
+            //std::cout << "    applied coordinated " << id() << ":" << limb.model->options_.to_link + "   pos: " << l_ts << std::endl;
         }
     }
 }
 
-void CoordinatedTrajectoryAction::complete(Limbs& limbs, const Model&, const rclcpp::Time&, int code)
+std::shared_ptr<CoordinatedTrajectoryAction::EffectorTrajectory::Result>
+CoordinatedTrajectoryAction::get_result(const rclcpp::Time&, int code)
 {
-    if(!goal_handle_)
-        return;
-
 #if 0
     KDL::Frame segment_state;
     if(state.findTF(member.expression.segment, segment_state)) {
@@ -100,7 +101,7 @@ void CoordinatedTrajectoryAction::complete(Limbs& limbs, const Model&, const rcl
     // signal complete
     auto result = std::make_shared<EffectorTrajectory::Result>();
     for(auto& m: members) {
-        auto& limb = limbs[m.expression.segment];
+        auto& limb = limbs_[m.expression.segment];
         limb.mode = Limb::Holding;
         // todo: add current position, velocity or error?
         //result->result.position = tf2::kdlToTransform(limb.target).transform;
@@ -112,7 +113,16 @@ void CoordinatedTrajectoryAction::complete(Limbs& limbs, const Model&, const rcl
     result->result.duration = (float)tr.span();
     result->result.code = code;
     result->result.value = 0.0;
+    return result;
+}
+
+void CoordinatedTrajectoryAction::complete(const rclcpp::Time& time, int code)
+{
+    if(!goal_handle_)
+        return;
+
     // preempted would mean this goal is already cancelled
+    auto result = get_result(time, code);
     if(goal_handle_->is_executing()) {
         if(code >=0)
             goal_handle_->succeed(result);
@@ -124,14 +134,14 @@ void CoordinatedTrajectoryAction::complete(Limbs& limbs, const Model&, const rcl
     goal_handle_.reset();
     feedback_.reset();
 
-    std::cout << "    completed coordinated " << id() << "    code: " << code << std::endl;
+    //std::cout << "    completed coordinated " << id() << "    code: " << code << std::endl;
 }
 
-bool CoordinatedTrajectoryAction::complete(std::string member_name, Limbs& limbs, const Model& model, const rclcpp::Time& now, int code)
+bool CoordinatedTrajectoryAction::complete(std::string member_name, const rclcpp::Time& now, int code)
 {
     if(members.size() == 1 && members.front().expression.segment == member_name) {
         // only 1 member and we are completing it
-        complete(limbs, model, now, code);
+        complete(now, code);
         return true;
     }
 
@@ -147,7 +157,20 @@ bool CoordinatedTrajectoryAction::complete(std::string member_name, Limbs& limbs
     return false;
 }
 
-void CoordinatedTrajectoryAction::send_feedback(const Limbs& limbs, const Model&, const rclcpp::Time& now)
+TrajectoryActionInterface::CancelResponse CoordinatedTrajectoryAction::cancel(
+        const rclcpp::Time& time,
+        int code)
+{
+    assert(goal_handle_);
+    auto result = get_result(time, code);
+    goal_handle_->canceled(result);
+
+    goal_handle_.reset();
+    feedback_.reset();
+    return rclcpp_action::CancelResponse::ACCEPT;
+}
+
+void CoordinatedTrajectoryAction::send_feedback(const rclcpp::Time& now)
 {
     if(!goal_handle_)
         return;
@@ -162,7 +185,7 @@ void CoordinatedTrajectoryAction::send_feedback(const Limbs& limbs, const Model&
     // report progress
     auto& fb = feedback_->progress;
     for(auto& m: members) {
-        auto& limb = limbs[m.expression.segment];
+        auto& limb = limbs_[m.expression.segment];
         fb.effectors.emplace_back(m.expression.segment);
         fb.transforms.emplace_back(tf2::kdlToTransform(limb.model->origin.Inverse() * limb.target).transform);
     }
