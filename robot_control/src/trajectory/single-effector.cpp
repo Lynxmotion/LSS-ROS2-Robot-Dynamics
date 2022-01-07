@@ -88,11 +88,12 @@ void TrajectoryAction::complete(Limbs& limbs, const Model&, const rclcpp::Time&,
     result->result.duration = (float)member.segment.Duration();
     result->result.code = code;
     result->result.value = 0.0;
-    if(code >=0)
-        goal_handle_->succeed(result);
-    else
-        goal_handle_->canceled(result);
-
+    if(goal_handle_->is_executing()) {
+        if(code >=0)
+            goal_handle_->succeed(result);
+        else
+            goal_handle_->abort(result);
+    }
     // stop reporting via action
     goal_handle_.reset();
     feedback_.reset();

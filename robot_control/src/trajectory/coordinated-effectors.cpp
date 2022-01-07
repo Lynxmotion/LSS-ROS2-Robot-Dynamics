@@ -112,10 +112,13 @@ void CoordinatedTrajectoryAction::complete(Limbs& limbs, const Model&, const rcl
     result->result.duration = (float)tr.span();
     result->result.code = code;
     result->result.value = 0.0;
-    if(code >=0)
-        goal_handle_->succeed(result);
-    else
-        goal_handle_->canceled(result);
+    // preempted would mean this goal is already cancelled
+    if(goal_handle_->is_executing()) {
+        if(code >=0)
+            goal_handle_->succeed(result);
+        else
+            goal_handle_->abort(result);
+    }
 
     // stop reporting via action
     goal_handle_.reset();
