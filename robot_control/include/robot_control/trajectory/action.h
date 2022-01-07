@@ -15,6 +15,8 @@
 #include <robot_model_msgs/msg/trajectory_complete.hpp>
 #include <utility>
 
+std::ostream & operator << (std::ostream &out, const rclcpp_action::GoalUUID& uuid);
+
 namespace robotik::trajectory {
 
 using TimeRange = range_t<double>;

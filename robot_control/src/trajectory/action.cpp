@@ -4,6 +4,21 @@
 
 #include "robot_control/trajectory/action.h"
 
+#define to_hex(b) (((b) < 10) ? ('0'+(b)) : ('a'+((b)-10)))
+
+std::ostream & operator << (std::ostream &out, const rclcpp_action::GoalUUID& uuid)
+{
+    char s[33];
+    char* p = s;
+    for(int i=0; i < 16; i++) {
+        auto b = uuid[i];
+        *p++ = to_hex(b & 0x0f);
+        *p++ = to_hex((b & 0xf0) >> 4);
+    }
+    *p = 0;
+    out << s;
+    return out;
+}
 
 namespace robotik::trajectory {
 
