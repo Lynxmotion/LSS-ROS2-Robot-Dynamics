@@ -851,7 +851,7 @@ trajectory::Expression Control::expression_from_msg(
 
     // calculate velocity/acceleration
     // todo: figure out what the max joint vel/acc is
-    tf.velocity = std::min(seg.velocity, 1.0);
+    tf.velocity = std::min(seg.velocity, 10.0);
     tf.acceleration = std::min(seg.acceleration, 4.0);
 
     // create motion profile
