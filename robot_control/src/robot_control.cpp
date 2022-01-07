@@ -715,7 +715,7 @@ bool Control::update_target(const State& current, rclcpp::Time _now) {
         action->apply(_now);
 
         // if this action has expired, remove it
-        if(now_ts > tr.end) {
+        if(action->expired(_now)) {
             action->complete(_now);
             expired.emplace_back(a);
         }

@@ -22,6 +22,12 @@ std::ostream & operator << (std::ostream &out, const rclcpp_action::GoalUUID& uu
 
 namespace robotik::trajectory {
 
+bool TrajectoryActionInterface::expired(const rclcpp::Time& now) const
+{
+    auto tr = time_range();
+    return now.seconds() > tr.end;
+}
+
 void TrajectoryActions::append(TrajectoryActionInterface::SharedPtr action)
 {
     auto itr = insert(end(), action);
@@ -32,7 +38,7 @@ void TrajectoryActions::append(TrajectoryActionInterface::SharedPtr action)
 
 bool TrajectoryActions::complete(const rclcpp_action::GoalUUID uuid,
               const rclcpp::Time& now,
-              int code)
+              TrajectoryActionInterface::ResultCode code)
 {
     for(auto a=begin(); a != end(); a++) {
         if((*a)->uuid == uuid) {
@@ -48,7 +54,7 @@ bool TrajectoryActions::complete(const rclcpp_action::GoalUUID uuid,
 
 bool TrajectoryActions::complete(std::string member_name,
                                  const rclcpp::Time& now,
-                                 int code)
+                                 TrajectoryActionInterface::ResultCode code)
 {
     int removals = 0;
     for(auto a=begin(); a != end(); ) {

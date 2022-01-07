@@ -29,6 +29,8 @@ public:
 
     [[nodiscard]] trajectory::RenderState render_state() const override;
 
+    [[nodiscard]] bool expired(const rclcpp::Time& now) const override;
+
     bool render(RenderingInterface& env) override;
 
     /// Apply the action request to the given state
@@ -37,7 +39,7 @@ public:
     /// tell the client this action has completed
     void complete(
             const rclcpp::Time& now,
-            int code = robot_model_msgs::msg::TrajectoryComplete::SUCCESS) override;
+            ResultCode code = robot_model_msgs::msg::TrajectoryComplete::SUCCESS) override;
 
     /// tell the client a member of this action is being cancelled
     /// Other members are still being controlled and progress on those members will continue. If there are no other
@@ -48,12 +50,12 @@ public:
     bool complete(
             std::string member_name,
             const rclcpp::Time& now,
-            int code = robot_model_msgs::msg::TrajectoryComplete::SUCCESS) override;
+            ResultCode code = robot_model_msgs::msg::TrajectoryComplete::SUCCESS) override;
 
     ///@brief Called to indicate the user requested this action be cancelled
     CancelResponse cancel(
             const rclcpp::Time& now,
-            int code = robot_model_msgs::msg::TrajectoryComplete::SUCCESS) override;
+            ResultCode code = robot_model_msgs::msg::TrajectoryComplete::SUCCESS) override;
 
     /// update the client on the progress of the action
     void send_feedback(const rclcpp::Time& now) override;
@@ -68,7 +70,7 @@ protected:
     std::shared_ptr<EffectorTrajectory::Feedback> feedback_;
 
     // compute the final result before completing or cancelling the action
-    std::shared_ptr<CoordinatedTrajectoryAction::EffectorTrajectory::Result> get_result(const rclcpp::Time&, int code);
+    std::shared_ptr<CoordinatedTrajectoryAction::EffectorTrajectory::Result> get_result(const rclcpp::Time&, ResultCode code);
 };
 
 } //ns:robotik::trajectory

@@ -65,6 +65,11 @@ bool CoordinatedTrajectoryAction::render(RenderingInterface& env)
     return tr.span();
 }
 
+bool CoordinatedTrajectoryAction::expired(const rclcpp::Time& now) const
+{
+    return members.empty() || TrajectoryActionInterface::expired(now);
+}
+
 void CoordinatedTrajectoryAction::apply(const rclcpp::Time& now)
 {
     if(state != Rendered)
@@ -83,7 +88,7 @@ void CoordinatedTrajectoryAction::apply(const rclcpp::Time& now)
 }
 
 std::shared_ptr<CoordinatedTrajectoryAction::EffectorTrajectory::Result>
-CoordinatedTrajectoryAction::get_result(const rclcpp::Time&, int code)
+CoordinatedTrajectoryAction::get_result(const rclcpp::Time&, ResultCode code)
 {
 #if 0
     KDL::Frame segment_state;
@@ -116,7 +121,7 @@ CoordinatedTrajectoryAction::get_result(const rclcpp::Time&, int code)
     return result;
 }
 
-void CoordinatedTrajectoryAction::complete(const rclcpp::Time& time, int code)
+void CoordinatedTrajectoryAction::complete(const rclcpp::Time& time, ResultCode code)
 {
     if(!goal_handle_)
         return;
@@ -137,7 +142,7 @@ void CoordinatedTrajectoryAction::complete(const rclcpp::Time& time, int code)
     //std::cout << "    completed coordinated " << id() << "    code: " << code << std::endl;
 }
 
-bool CoordinatedTrajectoryAction::complete(std::string member_name, const rclcpp::Time& now, int code)
+bool CoordinatedTrajectoryAction::complete(std::string member_name, const rclcpp::Time& now, ResultCode code)
 {
     if(members.size() == 1 && members.front().expression.segment == member_name) {
         // only 1 member and we are completing it
@@ -159,7 +164,7 @@ bool CoordinatedTrajectoryAction::complete(std::string member_name, const rclcpp
 
 TrajectoryActionInterface::CancelResponse CoordinatedTrajectoryAction::cancel(
         const rclcpp::Time& time,
-        int code)
+        ResultCode code)
 {
     assert(goal_handle_);
     auto result = get_result(time, code);
@@ -167,6 +172,7 @@ TrajectoryActionInterface::CancelResponse CoordinatedTrajectoryAction::cancel(
 
     goal_handle_.reset();
     feedback_.reset();
+    members.clear();
     return rclcpp_action::CancelResponse::ACCEPT;
 }
 

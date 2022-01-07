@@ -38,6 +38,11 @@ trajectory::RenderState TrajectoryAction::render_state() const
     return state;
 }
 
+bool TrajectoryAction::expired(const rclcpp::Time& now) const
+{
+    return member.ts == 0 || TrajectoryActionInterface::expired(now);
+}
+
 bool TrajectoryAction::render(RenderingInterface& env)
 {
     auto duration = member.segment.render(member.expression, limb_.position, env);
@@ -58,7 +63,7 @@ void TrajectoryAction::apply(const rclcpp::Time& now)
     //std::cout << "    applied " << limb.model->options_.to_link << "    pos: " << ts << std::endl;
 }
 
-void TrajectoryAction::complete(const rclcpp::Time&, int code)
+void TrajectoryAction::complete(const rclcpp::Time&, ResultCode code)
 {
     if(!goal_handle_)
         return;
@@ -100,7 +105,7 @@ void TrajectoryAction::complete(const rclcpp::Time&, int code)
     std::cout << "    completed " << limb_.model->options_.to_link << "    code: " << code << std::endl;
 }
 
-bool TrajectoryAction::complete(std::string member_name, const rclcpp::Time& now, int code)
+bool TrajectoryAction::complete(std::string member_name, const rclcpp::Time& now, ResultCode code)
 {
     // ignore if it isnt the member we are controlling
     if(member_name != member.expression.segment)
@@ -112,9 +117,10 @@ bool TrajectoryAction::complete(std::string member_name, const rclcpp::Time& now
 }
 
 TrajectoryActionInterface::CancelResponse TrajectoryAction::cancel(
-        const rclcpp::Time& now,
-        int code)
+        const rclcpp::Time&,
+        ResultCode)
 {
+    member.ts = 0;
     return rclcpp_action::CancelResponse::ACCEPT;
 }
 
