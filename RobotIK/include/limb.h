@@ -122,15 +122,23 @@ class Limbs : public std::vector<Limb::State>
 public:
     using std::vector<Limb::State>::operator[];
 
+    inline const_iterator find(const std::string& s) const {
+        return std::find_if(begin(), end(), [&s](const Limb::State& l) { return l.model->to_link == s; });
+    }
+
+    inline iterator find(const std::string& s) {
+        return std::find_if(begin(), end(), [&s](const Limb::State& l) { return l.model->to_link == s; });
+    }
+
     inline Limb::State& operator[](const std::string& s) {
-        auto itr = std::find_if(begin(), end(), [&s](const Limb::State& l) { return l.model->options_.to_link == s; });
+        iterator itr = find(s);
         if(itr == end())
             throw robotik::Exception::LimbNotFound(s);
         return *itr;
     }
 
     inline const Limb::State& operator[](const std::string& s) const {
-        auto itr = find_if(begin(), end(), [&s](const Limb::State& l) { return l.model->options_.to_link == s; });
+        const_iterator itr = find(s);
         if(itr == end())
             throw robotik::Exception::LimbNotFound(s);
         return *itr;
