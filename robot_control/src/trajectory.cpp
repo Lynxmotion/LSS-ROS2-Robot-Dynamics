@@ -128,9 +128,9 @@ public:
                 for(auto& l: model->limbs) {
                     if (std::find(l->segment_names.begin(), l->segment_names.end(), ref.name) != l->segment_names.end()) {
                         // found in this limb, check to see if this limb is controlled in this trajectory
-                        timeline = traj->timeline.find(l->options_.to_link);
+                        timeline = traj->timeline.find(l->to_link);
                         if(timeline == traj->timeline.end())
-                            timeline = traj->timeline.find(l->options_.from_link);
+                            timeline = traj->timeline.find(l->from_link);
                         // for any inner/dependent segment we must compute IK
                         if(timeline != traj->timeline.end()) {
                             limb = l.get();
@@ -440,28 +440,28 @@ int Trajectory::updateState(State& state, double t) {
         auto& limb_request = state.limbs[l];
 
         // check if this limb was in our trajectory
-        auto to_seg = segment_updates.find(limb->options_.to_link);
-        auto from_seg = segment_updates.find(limb->options_.from_link);
+        auto to_seg = segment_updates.find(limb->to_link);
+        auto from_seg = segment_updates.find(limb->from_link);
         if(to_seg != segment_updates.end()) {
             // set limb to seeking and update target
             if(limb_request.mode <= Limb::Seeking) {
                 limb_request.mode = Limb::Seeking;
                 limb_request.position = to_seg->second;
-                //std::cout << "seeking " << limb->options_.to_link << ": " << limb_request.targetTF << std::endl;
+                //std::cout << "seeking " << limb->to_link << ": " << limb_request.targetTF << std::endl;
 
                 // update kinematics
-                kinematics.moveEffector(state, limb->options_.to_link, limb_request.position);
+                kinematics.moveEffector(state, limb->to_link, limb_request.position);
             }
         }
         else if(from_seg != segment_updates.end()) {
             // only activate the limb, but it will track it's currently set target
             if(limb_request.mode <= Limb::Seeking) {
                 limb_request.mode = Limb::Seeking;
-                limb_request.position = state.tf[limb->options_.to_link];
+                limb_request.position = state.tf[limb->to_link];
             }
 
             // update kinematics
-            kinematics.moveEffector(state, limb->options_.to_link, limb_request.position);
+            kinematics.moveEffector(state, limb->to_link, limb_request.position);
 
         } else {
             if(limb_request.mode == Limb::Seeking)

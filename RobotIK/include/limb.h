@@ -37,14 +37,6 @@ public:
         Arm
     } DynamicModelType;
 
-    class Options {
-    public:
-        std::shared_ptr<KDL::Tree> tree;
-        KDL::Vector gravity;
-        DynamicModelType model;
-        std::string from_link, to_link;
-    };
-
     ///@brief Current behavior mode this limb is in
     enum Mode {
         Limp,                   /// end-effector servos should go limp
@@ -93,7 +85,11 @@ public:
         explicit State(Limb::SharedPtr model, Mode _mode, bool _supportive);
     };
 
-    explicit Limb(const Options& options);
+    explicit Limb(
+            std::shared_ptr<KDL::Tree> tree,
+            std::string from_link,
+            std::string to_link,
+            DynamicModelType type=DynamicModelType::Generic);
 
     inline unsigned int getNrOfJoints() const { return chain->getNrOfJoints(); }
 
@@ -107,7 +103,10 @@ public:
 
     KDL::Frame computeTFfromBase(const JointState& state);
 
-    Options options_;
+    std::shared_ptr<KDL::Tree> tree;
+    DynamicModelType model;
+    std::string from_link;
+    std::string to_link;
 
     std::vector<std::string> joint_names;
     std::vector<std::string> segment_names;

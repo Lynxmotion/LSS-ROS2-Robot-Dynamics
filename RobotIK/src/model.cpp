@@ -81,28 +81,11 @@ void Model::setupURDF(std::string urdf_filename, std::string srdf_filename) {
 
     // todo: many Limb::Options are no longer needed: ex. tree, gravity
 #if 0
-    Limb::Options chain_opts;
-    chain_opts.tree = tree_;
-    chain_opts.gravity = gravity;
+    limbs.emplace_back(std::make_shared<Limb>(tree_, base_link, "r_sole", Limb::DynamicModelType::Leg));
+    limbs.emplace_back(std::make_shared<Limb>(tree_, base_link, "l_sole", Limb::DynamicModelType::Leg));
 
-    chain_opts.model = Limb::Leg;
-    chain_opts.from_link = base_link;
-    chain_opts.to_link = "r_sole";
-    limbs.emplace_back(std::make_shared<Limb>(chain_opts));
-
-    chain_opts.from_link = base_link;
-    chain_opts.to_link = "l_sole";
-    limbs.emplace_back(std::make_shared<Limb>(chain_opts));
-
-    chain_opts.model = Limb::Arm;
-    chain_opts.from_link = base_link;
-    chain_opts.to_link = "LHand";
-    limbs.emplace_back(std::make_shared<Limb>(chain_opts));
-
-    chain_opts.model = Limb::Arm;
-    chain_opts.from_link = base_link;
-    chain_opts.to_link = "RHand";
-    limbs.emplace_back(std::make_shared<Limb>(chain_opts));
+    limbs.emplace_back(std::make_shared<Limb>(tree_, base_link, "RHand", Limb::DynamicModelType::Arm));
+    limbs.emplace_back(std::make_shared<Limb>(tree_, base_link, "LHand", Limb::DynamicModelType::Arm));
 
     // todo: determine transform from base to IMU
     urdf_base_imu_tf = KDL::Frame(
@@ -112,29 +95,12 @@ void Model::setupURDF(std::string urdf_filename, std::string srdf_filename) {
 
 #else
     // Hexapod config
-    Limb::Options chain_opts;
-    chain_opts.tree = tree_;
-    chain_opts.gravity = gravity;
-    chain_opts.model = Limb::Leg;
-    chain_opts.from_link = base_link;
-
-    chain_opts.to_link = "left-back-foot";
-    limbs.emplace_back(std::make_shared<Limb>(chain_opts));
-
-    chain_opts.to_link = "left-front-foot";
-    limbs.emplace_back(std::make_shared<Limb>(chain_opts));
-
-    chain_opts.to_link = "left-middle-foot";
-    limbs.emplace_back(std::make_shared<Limb>(chain_opts));
-
-    chain_opts.to_link = "right-back-foot";
-    limbs.emplace_back(std::make_shared<Limb>(chain_opts));
-
-    chain_opts.to_link = "right-front-foot";
-    limbs.emplace_back(std::make_shared<Limb>(chain_opts));
-
-    chain_opts.to_link = "right-middle-foot";
-    limbs.emplace_back(std::make_shared<Limb>(chain_opts));
+    limbs.emplace_back(std::make_shared<Limb>(tree_, base_link, "left-back-foot", Limb::DynamicModelType::Leg));
+    limbs.emplace_back(std::make_shared<Limb>(tree_, base_link, "left-front-foot", Limb::DynamicModelType::Leg));
+    limbs.emplace_back(std::make_shared<Limb>(tree_, base_link, "left-middle-foot", Limb::DynamicModelType::Leg));
+    limbs.emplace_back(std::make_shared<Limb>(tree_, base_link, "right-back-foot", Limb::DynamicModelType::Leg));
+    limbs.emplace_back(std::make_shared<Limb>(tree_, base_link, "right-front-foot", Limb::DynamicModelType::Leg));
+    limbs.emplace_back(std::make_shared<Limb>(tree_, base_link, "right-middle-foot", Limb::DynamicModelType::Leg));
 
     // todo: determine transform from base to IMU
     urdf_base_imu_tf = KDL::Frame(
@@ -621,7 +587,7 @@ bool Model::updateContacts(State& state) {
         Contact contact(limbid++);
 
         // todo: this should be computing pressures relative to the gravity vector but for simplicity we'll stick with just x,y
-        contact.name = limb->options_.to_link;
+        contact.name = limb->to_link;
 
         // find existing contact
         auto existing_contact_itr = std::find_if(state.contacts.begin(), state.contacts.end(),
@@ -630,7 +596,7 @@ bool Model::updateContacts(State& state) {
         auto linkTF = state.findTF(contact.name);
 
         // save limb endpoint for computing footprint
-        if(limb->options_.model == Limb::Leg) {
+        if(limb->model == Limb::Leg) {
             legs_barycenter += linkTF.p;
             leg_count++;
         }
@@ -888,7 +854,7 @@ void Model::updateNailedContacts(State& state) {
             KDL::Frame lowest_f;
             for(auto &limb: limbs) {
                 KDL::Frame limb_f;
-                if(state.findTF(limb->options_.to_link, limb_f)) {
+                if(state.findTF(limb->to_link, limb_f)) {
                     if(lowest_l<0 || limb_f.p.z() < lowest_f.p.z()) {
                         lowest_l = n;
                         lowest_f = limb_f;

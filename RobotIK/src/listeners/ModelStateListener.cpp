@@ -90,7 +90,7 @@ void ModelStateListener::model_state_callback(ModelStateMessageType::SharedPtr m
     for(auto& msg_limb: msg->support.contacts) {
         Contact st_c(msg_limb.limb);
 
-        //st_c.name = model_limb->options_.to_link;
+        //st_c.name = model_limb->to_link;
         st_c.name = msg_limb.segment;
 
         vector_to_kdl_vector(msg_limb.grf, st_c.grf);

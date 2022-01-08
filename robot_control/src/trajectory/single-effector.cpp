@@ -46,7 +46,7 @@ bool TrajectoryAction::expired(const rclcpp::Time& now) const
 bool TrajectoryAction::render(RenderingInterface& env)
 {
     auto duration = member.segment.render(member.expression, limb_.position, env);
-    std::cout << "rendered " << limb_.model->options_.to_link << "    duration: " << duration << std::endl;
+    std::cout << "rendered " << limb_.model->to_link << "    duration: " << duration << std::endl;
     state = Rendered;
     return duration > 0.0;
 }
@@ -60,7 +60,7 @@ void TrajectoryAction::apply(const rclcpp::Time& now)
     ts -= member.ts;        // convert time to beginning of rendered segment trajectory
     limb_.target = member.segment.Pos(ts);
     limb_.mode = Limb::Seeking;
-    //std::cout << "    applied " << limb.model->options_.to_link << "    pos: " << ts << std::endl;
+    //std::cout << "    applied " << limb.model->to_link << "    pos: " << ts << std::endl;
 }
 
 void TrajectoryAction::complete(const rclcpp::Time&, ResultCode code)
@@ -103,7 +103,7 @@ void TrajectoryAction::complete(const rclcpp::Time&, ResultCode code)
     goal_handle_.reset();
     feedback_.reset();
 
-    std::cout << "    completed " << limb_.model->options_.to_link << "    code: " << code << std::endl;
+    std::cout << "    completed " << limb_.model->to_link << "    code: " << code << std::endl;
 }
 
 bool TrajectoryAction::complete(std::string member_name, const rclcpp::Time& now, ResultCode code)

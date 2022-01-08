@@ -14,8 +14,12 @@
 
 namespace robotik {
 
-Limb::Limb(const Options& options)
-    : options_(options), friction(Friction::fromTable(Aluminum, Wood))
+Limb::Limb(
+        const std::shared_ptr<KDL::Tree>& _tree,
+        std::string _from_link,
+        std::string _to_link,
+        DynamicModelType _type)
+        : tree(_tree), model(_type), from_link(std::move(_from_link)), to_link(std::move(_to_link)), friction(Friction::fromTable(Aluminum, Wood))
 {
 }
 
@@ -23,7 +27,7 @@ Limb::Limb(const Options& options)
 bool Limb::on_activate() {
     // pull the chain out of the URDF file
     chain = std::make_unique<KDL::Chain>();
-    if(! options_.tree->getChain(options_.from_link, options_.to_link, *chain)) {
+    if(! tree->getChain(from_link, to_link, *chain)) {
         chain.reset();
         return false;
     }
@@ -31,7 +35,7 @@ bool Limb::on_activate() {
     auto nj = chain->getNrOfSegments();
 
 #if defined(DEBUG_LIMB)
-    std::cout << "Chain  " << options_.from_link << " => " << options_.to_link << std::endl;
+    std::cout << "Chain  " << from_link << " => " << to_link << std::endl;
 #endif
 
     // get information about the chain
@@ -105,7 +109,7 @@ KDL::Frame Limb::computeTFfromBase(const JointState& state) {
 }
 
 void Limb::loadSupportPolygon(urdf::ModelInterfaceSharedPtr urdf_model_) {
-    urdf::LinkConstSharedPtr eff_link =  urdf_model_->getLink(options_.to_link);
+    urdf::LinkConstSharedPtr eff_link =  urdf_model_->getLink(to_link);
     assert(eff_link);
 
     urdf::GeometryConstSharedPtr geom;
@@ -117,7 +121,7 @@ void Limb::loadSupportPolygon(urdf::ModelInterfaceSharedPtr urdf_model_) {
         geom = eff_link->visual->geometry;
         geom_pose = eff_link->visual->origin;
     } else{
-        throw robotik::Exception(RE_URDF_GEOMETRY_ERROR, "Unable to determine support polygon for %s", options_.to_link.c_str());
+        throw robotik::Exception(RE_URDF_GEOMETRY_ERROR, "Unable to determine support polygon for %s", to_link.c_str());
     }
 
     auto origin = KDL::Frame(
@@ -228,7 +232,7 @@ Limb::State::State()
 }
 
 Limb::State::State(Limb::SharedPtr _model, Mode _mode)
-: model(_model), mode(_mode), supportive(_model->options_.model == Leg), supporting(false)
+: model(_model), mode(_mode), supportive(_model->model == Leg), supporting(false)
 {
 }
 
@@ -241,7 +245,7 @@ Limb::State::State(Limb::SharedPtr _model, Mode _mode, bool _supportive)
 void Limbs::zero()
 {
     for(auto& limb: *this) {
-        limb.mode = (limb.model->options_.model == Limb::Leg) ? Limb::Holding : Limb::Limp;
+        limb.mode = (limb.model->model == Limb::Leg) ? Limb::Holding : Limb::Limp;
         limb.position = KDL::Frame();
         limb.velocity = KDL::Twist();
         limb.target = KDL::Frame();
@@ -254,7 +258,7 @@ Limbs Limbs::fromModel(const Model& model)
     // ensure we have the same number of limbs
     limbs.reserve(model.limbs.size());
     for(auto& l: model.limbs) {
-        auto isLeg = l->options_.model == robotik::Limb::Leg;
+        auto isLeg = l->model == robotik::Limb::Leg;
         limbs.emplace_back(
                 l,
                 Limb::Limp,

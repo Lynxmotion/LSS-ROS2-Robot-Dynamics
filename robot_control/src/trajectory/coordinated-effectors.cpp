@@ -82,7 +82,7 @@ void CoordinatedTrajectoryAction::apply(const rclcpp::Time& now)
         if(l_ts > 0) {
             limb.target = m.segment.Pos(l_ts);
             limb.mode = Limb::Seeking;
-            //std::cout << "    applied coordinated " << id() << ":" << limb.model->options_.to_link + "   pos: " << l_ts << std::endl;
+            //std::cout << "    applied coordinated " << id() << ":" << limb.model->to_link + "   pos: " << l_ts << std::endl;
         }
     }
 }

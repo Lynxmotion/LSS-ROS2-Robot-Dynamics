@@ -149,7 +149,7 @@ Dynamics::on_configure(const rclcpp_lifecycle::State &)
         auto supportDistance = get_parameter(LEG_SUPPORT_DISTANCE_PARAM).as_double();
         RCLCPP_INFO(get_logger(), LEG_SUPPORT_DISTANCE_PARAM ": overriding URDF value with %4.2f ", supportDistance);
         for (auto &limb: model_->limbs) {
-            if(limb->options_.model == robotik::Limb::Leg)
+            if(limb->model == robotik::Limb::Leg)
                 limb->supportDistance = supportDistance;
         }
     }

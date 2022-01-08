@@ -151,7 +151,7 @@ Control::on_configure(const rclcpp_lifecycle::State &)
         auto supportDistance = get_parameter(LEG_SUPPORT_DISTANCE_PARAM).as_double();
         RCLCPP_INFO(get_logger(), LEG_SUPPORT_DISTANCE_PARAM ": overriding URDF value with %4.2f ", supportDistance);
         for (auto &limb: model_->limbs) {
-            if(limb->options_.model == robotik::Limb::Leg)
+            if(limb->model == robotik::Limb::Leg)
                 limb->supportDistance = supportDistance;
         }
     }
@@ -404,9 +404,9 @@ void Control::publish_control_state() try
         auto& ml = control_state_msg_->limbs[i];
         auto& sl = limbs_[i];
         auto& leg_model = *sl.model;
-        ml.name = leg_model.options_.to_link;
+        ml.name = leg_model.to_link;
         ml.mode = sl.mode;
-        ml.type = leg_model.options_.model;
+        ml.type = leg_model.model;
         ml.supportive = sl.supportive;
         ml.supporting = supporting[i];
         tf2::toMsg(leg_model.origin, ml.origin);
@@ -582,9 +582,9 @@ public:
                 for(auto& l: model->limbs) {
                     if (std::find(l->segment_names.begin(), l->segment_names.end(), ref.name) != l->segment_names.end()) {
                         // found in this limb, check to see if this limb is controlled in this trajectory
-                        timeline = traj->timeline.find(l->options_.to_link);
+                        timeline = traj->timeline.find(l->to_link);
                         if(timeline == traj->timeline.end())
-                            timeline = traj->timeline.find(l->options_.from_link);
+                            timeline = traj->timeline.find(l->from_link);
                         // for any inner/dependent segment we must compute IK
                         if(timeline != traj->timeline.end()) {
                             limb = l.get();
@@ -730,7 +730,7 @@ bool Control::update_target(const State& current, rclcpp::Time _now) {
     // update target state using control state from the limbs
     //
     for(auto& limb: limbs_) {
-        auto l_name =  limb.model->options_.to_link;
+        auto l_name =  limb.model->to_link;
 
         KDL::Frame current_limb_tf;
         if(current.findTF(l_name, current_limb_tf)) {
@@ -920,7 +920,7 @@ void Control::configure_limb_callback(const std::shared_ptr<robot_model_msgs::sr
     for(int i=0, _i = request->limbs.size(); i < _i; i++) {
         auto& limb = limbs_[request->limbs[i]];
         if(has_type) {
-            limb.model->options_.model = (robotik::Limb::DynamicModelType)request->type[i];
+            limb.model->model = (robotik::Limb::DynamicModelType)request->type[i];
         }
         if(has_origin)
             tf2::fromMsg(request->origin[i], limb.model->origin);

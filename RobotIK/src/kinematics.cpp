@@ -124,7 +124,7 @@ int LimbKinematics::computeIK(JointAndSegmentState& state, const KDL::Frame& new
     // get the base => effector transform
     KDL::Frame base_tf;
     KDL::Frame effector_wrt_base_tf;
-    if(!state.findTF(limb_->options_.from_link, base_tf)) {
+    if(!state.findTF(limb_->from_link, base_tf)) {
         return -2;      // no base link in state
     }
 
@@ -142,7 +142,7 @@ int LimbKinematics::computeIK(JointAndSegmentState& state, const KDL::Frame& new
         return Kinematics::SUCCESS;
     } else {
 #if defined(DEBUG_LIMB)
-        std::cout << "IK failed: " << options_.to_link << ": ";
+        std::cout << "IK failed: " << to_link << ": ";
         switch(err) {
             case KDL::ChainIkSolverPos_LMA::E_GRADIENT_JOINTS_TOO_SMALL: std::cout << "GRADIENT_JOINTS_TOO_SMALL the gradient of E towards the joints is to small" << std::endl; break;
             case KDL::ChainIkSolverPos_LMA::E_INCREMENT_JOINTS_TOO_SMALL: std::cout << "INCREMENT_JOINTS_TOO_SMALL joint position increments are to small" << std::endl; break;
@@ -152,7 +152,7 @@ int LimbKinematics::computeIK(JointAndSegmentState& state, const KDL::Frame& new
                 break;
         }
 #if DEBUG_LIMB > 1
-std::cout << "    limb: " << options_.to_link << "   joints: ";
+std::cout << "    limb: " << to_link << "   joints: ";
         for (int i = 0, _i = jnt_quess.rows(); i < _i; i++) {
             std::cout << "   " << joint_names[i] << "=" << jnt_quess(i);
         }
@@ -185,7 +185,7 @@ bool LimbKinematics::updateJointsAndSegments(JointAndSegmentState& state, KDL::F
 
     // start off with the limb's base transform
     KDL::Frame tf;
-    if(!state.findTF(limb_->options_.from_link, tf)) {
+    if(!state.findTF(limb_->from_link, tf)) {
         return false;      // no base link in state
     }
 
@@ -252,7 +252,7 @@ bool LimbKinematics::updateState(State& state)
 {
     if(state_ <= INVALID) {
         KDL::Frame effector_goal;
-        if(state.findTF(limb_->options_.to_link, effector_goal)) {
+        if(state.findTF(limb_->to_link, effector_goal)) {
             if(moveEffector(state, effector_goal) != Kinematics::SUCCESS)
                 return false;
         }
@@ -285,9 +285,9 @@ void Kinematics::activate(Model::SharedPtr model)
     center_of_mass_.Zero();
     for(auto& l: model_->limbs) {
         if(l->joint_names.empty())
-            throw robotik::Exception(RE_INVALID_CHAIN, "model contains limb " + l->options_.to_link + " with no moving joints");
+            throw robotik::Exception(RE_INVALID_CHAIN, "model contains limb " + l->to_link + " with no moving joints");
         limbs_first_joint.insert(l->joint_names[0]);
-        limbs_.emplace(std::make_pair(l->options_.to_link, l));
+        limbs_.emplace(std::make_pair(l->to_link, l));
     }
 
     // todo: calculate the mass and CoM of non-limb parts
