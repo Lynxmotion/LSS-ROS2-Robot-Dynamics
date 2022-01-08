@@ -73,41 +73,6 @@ bool Limb::on_deactivate() {
     return true;
 }
 
-KDL::Frame Limb::computeTFfromBase(const JointState& state) {
-#if 0
-    // this calls Orokos API to get the endpoint using FK
-    // to do: The input 'q' needs to be mapped from state.position, and the result has to be mapped back to state algo frame
-    KDL::Frame f;
-    if(chain) {
-        // to do: fill 'q' with positions from state
-        KDL::ChainFkSolverPos_recursive solver(*chain);
-        solver.JntToCart(q, f);
-        // to do: map 'f' back to state frame
-    }
-    return f;
-#else
-    // get information about the chain
-    KDL::Frame tf;
-    auto nj = chain->getNrOfSegments();
-    for(unsigned int s=0; s<nj; s++) {
-        const auto &segment = chain->getSegment(s);
-        const auto &joint = segment.getJoint();
-        double pos = 0;
-
-        if(joint.getType() != KDL::Joint::None) {
-            const auto jname = joint.getName();
-            int jn = state.findJoint(jname);
-            if (jn < 0)
-                throw Exception::JointNotFound(jname);
-            pos = state.position(jn);
-        }
-
-        tf = tf * segment.pose(pos);
-    }
-    return tf;
-#endif
-}
-
 void Limb::loadSupportPolygon(urdf::ModelInterfaceSharedPtr urdf_model_) {
     urdf::LinkConstSharedPtr eff_link =  urdf_model_->getLink(to_link);
     assert(eff_link);

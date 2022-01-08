@@ -101,7 +101,6 @@ public:
 
     inline KDL::Chain* get_chain() { return chain.get(); }
 
-    KDL::Frame computeTFfromBase(const JointState& state);
 
     std::shared_ptr<KDL::Tree> tree;
     DynamicModelType model;
