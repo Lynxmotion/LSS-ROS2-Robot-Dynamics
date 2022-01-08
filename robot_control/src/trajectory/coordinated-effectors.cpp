@@ -112,7 +112,8 @@ CoordinatedTrajectoryAction::get_result(const rclcpp::Time&, ResultCode code)
         //result->result.position = tf2::kdlToTransform(limb.target).transform;
         //result->result.velocity = tf2::kdlToTransform(limb.target).transform;
         result->result.effectors.emplace_back(m.expression.segment);
-        result->result.transforms.emplace_back(tf2::kdlToTransform(limb.target).transform);
+        result->result.transforms.emplace_back(
+                tf2::kdlToTransform(limb.model->origin.Inverse() * limb.target).transform);
     }
 
     result->result.duration = (float)tr.span();
@@ -193,7 +194,8 @@ void CoordinatedTrajectoryAction::send_feedback(const rclcpp::Time& now)
     for(auto& m: members) {
         auto& limb = limbs_[m.expression.segment];
         fb.effectors.emplace_back(m.expression.segment);
-        fb.transforms.emplace_back(tf2::kdlToTransform(limb.model->origin.Inverse() * limb.target).transform);
+        fb.transforms.emplace_back(
+                tf2::kdlToTransform(limb.model->origin.Inverse() * limb.target).transform);
     }
     fb.duration = (float)tr.span();
     fb.progress = (float)(t - tr.begin);

@@ -84,7 +84,8 @@ void TrajectoryAction::complete(const rclcpp::Time&, ResultCode code)
 
     // signal complete
     auto result = std::make_shared<EffectorTrajectory::Result>();
-    result->result.transforms.emplace_back(tf2::kdlToTransform(limb_.target).transform);
+    result->result.transforms.emplace_back(
+            tf2::kdlToTransform(limb_.model->origin.Inverse() * limb_.target).transform);
     // todo: add current position, velocity or error?
     //result->result.position = tf2::kdlToTransform(limb.target).transform;
     //result->result.velocity = tf2::kdlToTransform(limb.target).transform;
