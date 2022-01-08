@@ -115,6 +115,11 @@ public:
     bool complete(std::string member_name,
                   const rclcpp::Time& now,
                   TrajectoryActionInterface::ResultCode code = robot_model_msgs::msg::TrajectoryComplete::SUCCESS);
+
+    TrajectoryActionInterface::CancelResponse cancel(const rclcpp_action::GoalUUID uuid,
+                  const rclcpp::Time& now,
+                  TrajectoryActionInterface::ResultCode code = robot_model_msgs::msg::TrajectoryComplete::CANCELLED);
+
 };
 
 } //ns:robotik::trajectory

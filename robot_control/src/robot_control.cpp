@@ -996,11 +996,7 @@ rclcpp_action::CancelResponse Control::handle_trajectory_cancel(
             request.id.c_str(),
             request.segment.segment.c_str());
 
-    actions.complete(
-            goal_handle->get_goal_id(),
-            lastUpdate,
-            robot_model_msgs::msg::TrajectoryComplete::CANCELLED);
-    return rclcpp_action::CancelResponse::ACCEPT;
+    return actions.cancel(goal_handle->get_goal_id(), lastUpdate);
 }
 
 void Control::handle_trajectory_accepted(
@@ -1071,11 +1067,7 @@ rclcpp_action::CancelResponse Control::handle_coordinated_trajectory_cancel(
     RCLCPP_INFO(get_logger(), "Received request to cancel goal for coordinated trajectory %s",
             request.id.c_str());
 
-    actions.complete(
-            goal_handle->get_goal_id(),
-            lastUpdate,
-            robot_model_msgs::msg::TrajectoryComplete::CANCELLED);
-    return rclcpp_action::CancelResponse::ACCEPT;
+    return actions.cancel(goal_handle->get_goal_id(), lastUpdate);
 }
 
 void Control::handle_coordinated_trajectory_accepted(

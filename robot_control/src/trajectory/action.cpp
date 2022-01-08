@@ -69,4 +69,24 @@ bool TrajectoryActions::complete(std::string member_name,
     return removals > 0;
 }
 
+TrajectoryActionInterface::CancelResponse TrajectoryActions::cancel(const rclcpp_action::GoalUUID uuid,
+                                 const rclcpp::Time& now,
+                                 TrajectoryActionInterface::ResultCode code)
+{
+    for(auto a=begin(); a != end(); a++) {
+        if((*a)->uuid == uuid) {
+            // found the action, complete it
+            auto r = (*a)->cancel(now, code);
+            // remove action
+            if(r == rclcpp_action::CancelResponse::ACCEPT)
+                erase(a);
+            return r;
+        }
+    }
+
+    // can't find the action, reject the request
+    return rclcpp_action::CancelResponse::REJECT;
+}
+
+
 } // ns:robotik
