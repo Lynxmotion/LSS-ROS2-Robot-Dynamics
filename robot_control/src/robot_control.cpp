@@ -404,7 +404,7 @@ void Control::publish_control_state() try
         auto& ml = control_state_msg_->limbs[i];
         auto& sl = limbs_[i];
         auto& leg_model = *sl.model;
-        ml.name = leg_model.to_link;
+        ml.name = leg_model.link;
         ml.mode = sl.mode;
         ml.type = leg_model.model;
         ml.supportive = sl.supportive;
@@ -730,7 +730,7 @@ bool Control::update_target(const State& current, rclcpp::Time _now) {
     // update target state using control state from the limbs
     //
     for(auto& limb: limbs_) {
-        auto l_name =  limb.model->to_link;
+        auto l_name =  limb.model->link;
 
         KDL::Frame current_limb_tf;
         if(current.findTF(l_name, current_limb_tf)) {

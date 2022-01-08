@@ -46,7 +46,7 @@ bool TrajectoryAction::expired(const rclcpp::Time& now) const
 bool TrajectoryAction::render(RenderingInterface& env)
 {
     auto duration = member.segment.render(member.expression, limb_.position, env);
-    std::cout << "rendered " << limb_.model->to_link << "    duration: " << duration << std::endl;
+    std::cout << "rendered " << limb_.model->link << "    duration: " << duration << std::endl;
     state = Rendered;
     return duration > 0.0;
 }
@@ -103,7 +103,7 @@ void TrajectoryAction::complete(const rclcpp::Time&, ResultCode code)
     goal_handle_.reset();
     feedback_.reset();
 
-    std::cout << "    completed " << limb_.model->to_link << "    code: " << code << std::endl;
+    std::cout << "    completed " << limb_.model->link << "    code: " << code << std::endl;
 }
 
 bool TrajectoryAction::complete(std::string member_name, const rclcpp::Time& now, ResultCode code)

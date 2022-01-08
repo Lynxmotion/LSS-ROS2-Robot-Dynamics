@@ -590,7 +590,7 @@ bool Model::updateContacts(State& state) {
         Contact contact(limbid++);
 
         // todo: this should be computing pressures relative to the gravity vector but for simplicity we'll stick with just x,y
-        contact.name = limb->to_link;
+        contact.name = limb->link;
 
         // find existing contact
         auto existing_contact_itr = std::find_if(state.contacts.begin(), state.contacts.end(),
@@ -857,7 +857,7 @@ void Model::updateNailedContacts(State& state) {
             KDL::Frame lowest_f;
             for(auto &limb: limbs) {
                 KDL::Frame limb_f;
-                if(state.findTF(limb->to_link, limb_f)) {
+                if(state.findTF(limb->link, limb_f)) {
                     if(lowest_l<0 || limb_f.p.z() < lowest_f.p.z()) {
                         lowest_l = n;
                         lowest_f = limb_f;

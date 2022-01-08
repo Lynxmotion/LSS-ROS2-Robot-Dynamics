@@ -20,7 +20,7 @@ Limb::Limb(
         BaseEffector::SharedPtr _base,
         std::string _to_link,
         DynamicModelType _type)
-        : base(std::move(_base)), model(_type), to_link(std::move(_to_link)), friction(Friction::fromTable(Aluminum, Wood))
+        : base(std::move(_base)), model(_type), link(std::move(_to_link)), friction(Friction::fromTable(Aluminum, Wood))
 {
 }
 
@@ -28,7 +28,7 @@ Limb::Limb(
 bool Limb::on_activate() {
     // pull the chain out of the URDF file
     chain = std::make_unique<KDL::Chain>();
-    if(! base->tree->getChain(base->base_link, to_link, *chain)) {
+    if(! base->tree->getChain(base->link, link, *chain)) {
         chain.reset();
         return false;
     }
@@ -75,7 +75,7 @@ bool Limb::on_deactivate() {
 }
 
 void Limb::loadSupportPolygon(urdf::ModelInterfaceSharedPtr urdf_model_) {
-    urdf::LinkConstSharedPtr eff_link =  urdf_model_->getLink(to_link);
+    urdf::LinkConstSharedPtr eff_link =  urdf_model_->getLink(link);
     assert(eff_link);
 
     urdf::GeometryConstSharedPtr geom;
@@ -87,7 +87,7 @@ void Limb::loadSupportPolygon(urdf::ModelInterfaceSharedPtr urdf_model_) {
         geom = eff_link->visual->geometry;
         geom_pose = eff_link->visual->origin;
     } else{
-        throw robotik::Exception(RE_URDF_GEOMETRY_ERROR, "Unable to determine support polygon for %s", to_link.c_str());
+        throw robotik::Exception(RE_URDF_GEOMETRY_ERROR, "Unable to determine support polygon for %s", link.c_str());
     }
 
     auto origin = KDL::Frame(

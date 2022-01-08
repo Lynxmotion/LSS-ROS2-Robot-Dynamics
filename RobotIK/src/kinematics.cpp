@@ -124,7 +124,7 @@ int LimbKinematics::computeIK(JointAndSegmentState& state, const KDL::Frame& new
     // get the base => effector transform
     KDL::Frame base_tf;
     KDL::Frame effector_wrt_base_tf;
-    if(!state.findTF(limb_->base->base_link, base_tf)) {
+    if(!state.findTF(limb_->base->link, base_tf)) {
         return -2;      // no base link in state
     }
 
@@ -185,7 +185,7 @@ bool LimbKinematics::updateJointsAndSegments(JointAndSegmentState& state, KDL::F
 
     // start off with the limb's base transform
     KDL::Frame tf;
-    if(!state.findTF(limb_->base->base_link, tf)) {
+    if(!state.findTF(limb_->base->link, tf)) {
         return false;      // no base link in state
     }
 
@@ -252,7 +252,7 @@ bool LimbKinematics::updateState(State& state)
 {
     if(state_ <= INVALID) {
         KDL::Frame effector_goal;
-        if(state.findTF(limb_->to_link, effector_goal)) {
+        if(state.findTF(limb_->link, effector_goal)) {
             if(moveEffector(state, effector_goal) != Kinematics::SUCCESS)
                 return false;
         }
@@ -285,9 +285,9 @@ void Kinematics::activate(Model::SharedPtr model)
     center_of_mass_.Zero();
     for(auto& l: model_->limbs) {
         if(l->joint_names.empty())
-            throw robotik::Exception(RE_INVALID_CHAIN, "model contains limb " + l->to_link + " with no moving joints");
+            throw robotik::Exception(RE_INVALID_CHAIN, "model contains limb " + l->link + " with no moving joints");
         limbs_first_joint.insert(l->joint_names[0]);
-        limbs_.emplace(std::make_pair(l->to_link, l));
+        limbs_.emplace(std::make_pair(l->link, l));
     }
 
     // todo: calculate the mass and CoM of non-limb parts

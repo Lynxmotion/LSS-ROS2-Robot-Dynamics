@@ -105,7 +105,7 @@ public:
             std::string base_link);
 
     std::shared_ptr<KDL::Tree> tree;
-    std::string base_link;
+    std::string link;
 
 };
 

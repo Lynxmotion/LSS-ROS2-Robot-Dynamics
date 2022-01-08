@@ -75,7 +75,7 @@ public:
 
     BaseEffector::SharedPtr base;
     DynamicModelType model;
-    std::string to_link;
+    std::string link;
 
     std::vector<std::string> joint_names;
     std::vector<std::string> segment_names;
