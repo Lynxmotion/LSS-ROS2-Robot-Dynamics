@@ -3,7 +3,7 @@ set(INCLUDE_FILES
         types.h model.h limb.h frame-ref.h
         contact.h state.h indexes.h effector.h
         conversions.h exception.h
-        friction.h
+        friction.h tween.h
         kinematics.h
         listeners/JointStateListener.h
         listeners/ModelStateListener.h
@@ -12,7 +12,7 @@ set(INCLUDE_FILES
 set(SOURCE_FILES
         types.cpp model.cpp limb.cpp frame-ref.cpp
         contact.cpp state.cpp indexes.cpp effector.cpp
-        conversions.cpp friction.cpp
+        conversions.cpp friction.cpp tween.cpp
         kinematics.cpp
         listeners/JointStateListener.cpp
         listeners/ModelStateListener.cpp
