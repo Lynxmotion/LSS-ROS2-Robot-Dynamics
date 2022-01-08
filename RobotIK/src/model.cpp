@@ -79,13 +79,16 @@ void Model::setupURDF(std::string urdf_filename, std::string srdf_filename) {
         }
     }
 
+    auto base = std::make_shared<BaseEffector>(tree_, base_link);
+    bases.emplace_back(base);
+
     // todo: many Limb::Options are no longer needed: ex. tree, gravity
 #if 0
-    limbs.emplace_back(std::make_shared<Limb>(tree_, base_link, "r_sole", Limb::DynamicModelType::Leg));
-    limbs.emplace_back(std::make_shared<Limb>(tree_, base_link, "l_sole", Limb::DynamicModelType::Leg));
+limbs.emplace_back(std::make_shared<Limb>(base, "r_sole", Limb::DynamicModelType::Leg));
+limbs.emplace_back(std::make_shared<Limb>(base, "l_sole", Limb::DynamicModelType::Leg));
 
-    limbs.emplace_back(std::make_shared<Limb>(tree_, base_link, "RHand", Limb::DynamicModelType::Arm));
-    limbs.emplace_back(std::make_shared<Limb>(tree_, base_link, "LHand", Limb::DynamicModelType::Arm));
+limbs.emplace_back(std::make_shared<Limb>(base, "RHand", Limb::DynamicModelType::Arm));
+limbs.emplace_back(std::make_shared<Limb>(base, "LHand", Limb::DynamicModelType::Arm));
 
     // todo: determine transform from base to IMU
     urdf_base_imu_tf = KDL::Frame(
@@ -95,12 +98,12 @@ void Model::setupURDF(std::string urdf_filename, std::string srdf_filename) {
 
 #else
     // Hexapod config
-    limbs.emplace_back(std::make_shared<Limb>(tree_, base_link, "left-back-foot", Limb::DynamicModelType::Leg));
-    limbs.emplace_back(std::make_shared<Limb>(tree_, base_link, "left-front-foot", Limb::DynamicModelType::Leg));
-    limbs.emplace_back(std::make_shared<Limb>(tree_, base_link, "left-middle-foot", Limb::DynamicModelType::Leg));
-    limbs.emplace_back(std::make_shared<Limb>(tree_, base_link, "right-back-foot", Limb::DynamicModelType::Leg));
-    limbs.emplace_back(std::make_shared<Limb>(tree_, base_link, "right-front-foot", Limb::DynamicModelType::Leg));
-    limbs.emplace_back(std::make_shared<Limb>(tree_, base_link, "right-middle-foot", Limb::DynamicModelType::Leg));
+    limbs.emplace_back(std::make_shared<Limb>(base, "left-back-foot", Limb::DynamicModelType::Leg));
+    limbs.emplace_back(std::make_shared<Limb>(base, "left-front-foot", Limb::DynamicModelType::Leg));
+    limbs.emplace_back(std::make_shared<Limb>(base, "left-middle-foot", Limb::DynamicModelType::Leg));
+    limbs.emplace_back(std::make_shared<Limb>(base, "right-back-foot", Limb::DynamicModelType::Leg));
+    limbs.emplace_back(std::make_shared<Limb>(base, "right-front-foot", Limb::DynamicModelType::Leg));
+    limbs.emplace_back(std::make_shared<Limb>(base, "right-middle-foot", Limb::DynamicModelType::Leg));
 
     // todo: determine transform from base to IMU
     urdf_base_imu_tf = KDL::Frame(

@@ -10,9 +10,6 @@
 #include "friction.h"
 #include "effector.h"
 
-#include <kdl/tree.hpp>
-#include <kdl/jntarray.hpp>
-
 #include <urdf_model/model.h>
 #include <urdf_parser/urdf_parser.h>
 
@@ -62,8 +59,7 @@ public:
     };
 
     explicit Limb(
-            const std::shared_ptr<KDL::Tree>& tree,
-            std::string from_link,
+            BaseEffector::SharedPtr base,
             std::string to_link,
             DynamicModelType type=DynamicModelType::Generic);
 
@@ -77,10 +73,8 @@ public:
 
     inline KDL::Chain* get_chain() { return chain.get(); }
 
-
-    std::shared_ptr<KDL::Tree> tree;
+    BaseEffector::SharedPtr base;
     DynamicModelType model;
-    std::string from_link;
     std::string to_link;
 
     std::vector<std::string> joint_names;
@@ -117,33 +111,9 @@ class LimbModels : public std::vector<Limb::SharedPtr>
 public:
 };
 
-class Limbs : public std::vector<Limb::State>
+class Limbs : public Effectors<Limb::State>
 {
 public:
-    using std::vector<Limb::State>::operator[];
-
-    inline const_iterator find(const std::string& s) const {
-        return std::find_if(begin(), end(), [&s](const Limb::State& l) { return l.model->to_link == s; });
-    }
-
-    inline iterator find(const std::string& s) {
-        return std::find_if(begin(), end(), [&s](const Limb::State& l) { return l.model->to_link == s; });
-    }
-
-    inline Limb::State& operator[](const std::string& s) {
-        iterator itr = find(s);
-        if(itr == end())
-            throw robotik::Exception::LimbNotFound(s);
-        return *itr;
-    }
-
-    inline const Limb::State& operator[](const std::string& s) const {
-        const_iterator itr = find(s);
-        if(itr == end())
-            throw robotik::Exception::LimbNotFound(s);
-        return *itr;
-    }
-
     void zero();
 
     static Limbs fromModel(const Model& model);

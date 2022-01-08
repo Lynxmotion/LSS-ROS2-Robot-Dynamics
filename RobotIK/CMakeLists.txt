@@ -1,7 +1,7 @@
 
 set(INCLUDE_FILES
         types.h model.h limb.h frame-ref.h
-        contact.h state.h indexes.h
+        contact.h state.h indexes.h effector.h
         conversions.h exception.h
         friction.h
         kinematics.h
@@ -11,7 +11,7 @@ set(INCLUDE_FILES
         publishers/JointControlPublisher.h)
 set(SOURCE_FILES
         types.cpp model.cpp limb.cpp frame-ref.cpp
-        contact.cpp state.cpp indexes.cpp
+        contact.cpp state.cpp indexes.cpp effector.cpp
         conversions.cpp friction.cpp
         kinematics.cpp
         listeners/JointStateListener.cpp

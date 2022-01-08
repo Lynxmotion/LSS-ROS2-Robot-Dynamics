@@ -6,6 +6,8 @@
 #include <model.h>
 #include <state.h>
 
+#include <utility>
+
 
 ///@brief Log information to console about limb and limb IK errors
 /// If defined, will log information about each limb Orokos Chain, and will output IK errors when they occur. If defined
@@ -15,11 +17,10 @@
 namespace robotik {
 
 Limb::Limb(
-        const std::shared_ptr<KDL::Tree>& _tree,
-        std::string _from_link,
+        BaseEffector::SharedPtr _base,
         std::string _to_link,
         DynamicModelType _type)
-        : tree(_tree), model(_type), from_link(std::move(_from_link)), to_link(std::move(_to_link)), friction(Friction::fromTable(Aluminum, Wood))
+        : base(std::move(_base)), model(_type), to_link(std::move(_to_link)), friction(Friction::fromTable(Aluminum, Wood))
 {
 }
 
@@ -27,7 +28,7 @@ Limb::Limb(
 bool Limb::on_activate() {
     // pull the chain out of the URDF file
     chain = std::make_unique<KDL::Chain>();
-    if(! tree->getChain(from_link, to_link, *chain)) {
+    if(! base->tree->getChain(base->base_link, to_link, *chain)) {
         chain.reset();
         return false;
     }

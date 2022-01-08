@@ -124,7 +124,7 @@ int LimbKinematics::computeIK(JointAndSegmentState& state, const KDL::Frame& new
     // get the base => effector transform
     KDL::Frame base_tf;
     KDL::Frame effector_wrt_base_tf;
-    if(!state.findTF(limb_->from_link, base_tf)) {
+    if(!state.findTF(limb_->base->base_link, base_tf)) {
         return -2;      // no base link in state
     }
 
@@ -185,7 +185,7 @@ bool LimbKinematics::updateJointsAndSegments(JointAndSegmentState& state, KDL::F
 
     // start off with the limb's base transform
     KDL::Frame tf;
-    if(!state.findTF(limb_->from_link, tf)) {
+    if(!state.findTF(limb_->base->base_link, tf)) {
         return false;      // no base link in state
     }
 

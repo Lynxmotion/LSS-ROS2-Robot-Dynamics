@@ -584,7 +584,7 @@ public:
                         // found in this limb, check to see if this limb is controlled in this trajectory
                         timeline = traj->timeline.find(l->to_link);
                         if(timeline == traj->timeline.end())
-                            timeline = traj->timeline.find(l->from_link);
+                            timeline = traj->timeline.find(l->base->base_link);
                         // for any inner/dependent segment we must compute IK
                         if(timeline != traj->timeline.end()) {
                             limb = l.get();

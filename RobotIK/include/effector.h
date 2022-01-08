@@ -5,6 +5,15 @@
 #ifndef ROBOT_DYNAMICS_EFFECTOR_H
 #define ROBOT_DYNAMICS_EFFECTOR_H
 
+#include <memory>
+#include <vector>
+
+#include "exception.h"
+
+#include <kdl/tree.hpp>
+#include <kdl/jntarray.hpp>
+
+
 namespace robotik {
 
 class JointAndSegmentState;
@@ -47,6 +56,56 @@ public:
         : mode(_mode)
         {}
     };
+};
+
+template<class ET>
+class Effectors : public std::vector<ET>
+{
+public:
+    using typename std::vector<ET>::iterator;
+    using typename std::vector<ET>::const_iterator;
+    using std::vector<ET>::operator[];
+    using std::vector<ET>::begin;
+    using std::vector<ET>::end;
+
+    inline const_iterator find(const std::string& s) const {
+        return std::find_if(begin(), end(), [&s](const ET& e) { return e.model->to_link == s; });
+    }
+
+    inline iterator find(const std::string& s) {
+        return std::find_if(begin(), end(), [&s](const Effectors& e) { return e.model->to_link == s; });
+    }
+
+    inline ET& operator[](const std::string& s) {
+        iterator itr = find(s);
+        if(itr == end())
+            throw Exception::LimbNotFound(s);
+        return *itr;
+    }
+
+    inline const ET& operator[](const std::string& s) const {
+        const_iterator itr = find(s);
+        if(itr == end())
+            throw Exception::LimbNotFound(s);
+        return *itr;
+    }
+};
+
+class BaseEffector : public Effector {
+public:
+    using SharedPtr = std::shared_ptr<BaseEffector>;
+
+    class State : public Effector::State {
+    public:
+        BaseEffector::SharedPtr model;
+    };
+
+    BaseEffector(
+            const std::shared_ptr<KDL::Tree>& tree,
+            std::string base_link);
+
+    std::shared_ptr<KDL::Tree> tree;
+    std::string base_link;
 
 };
 

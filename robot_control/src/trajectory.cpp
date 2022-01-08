@@ -130,7 +130,7 @@ public:
                         // found in this limb, check to see if this limb is controlled in this trajectory
                         timeline = traj->timeline.find(l->to_link);
                         if(timeline == traj->timeline.end())
-                            timeline = traj->timeline.find(l->from_link);
+                            timeline = traj->timeline.find(l->base->base_link);
                         // for any inner/dependent segment we must compute IK
                         if(timeline != traj->timeline.end()) {
                             limb = l.get();
@@ -441,7 +441,7 @@ int Trajectory::updateState(State& state, double t) {
 
         // check if this limb was in our trajectory
         auto to_seg = segment_updates.find(limb->to_link);
-        auto from_seg = segment_updates.find(limb->from_link);
+        auto from_seg = segment_updates.find(limb->base->base_link);
         if(to_seg != segment_updates.end()) {
             // set limb to seeking and update target
             if(limb_request.mode <= Limb::Seeking) {

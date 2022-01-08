@@ -138,6 +138,7 @@ namespace robotik {
         std::string interactingSegment;
 
         std::shared_ptr<KDL::Tree> tree_;
+        Effectors<BaseEffector::SharedPtr> bases;
         LimbModels limbs;
 
     protected:
