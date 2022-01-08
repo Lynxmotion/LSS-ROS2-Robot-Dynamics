@@ -192,17 +192,17 @@ void Limb::loadSupportPolygon(urdf::ModelInterfaceSharedPtr urdf_model_) {
 }
 
 Limb::State::State()
-: mode(Limp), supportive(false), supporting(false)
+: Effector::State(Limp), supportive(false), supporting(false)
 {
 }
 
 Limb::State::State(Limb::SharedPtr _model, Mode _mode)
-: model(_model), mode(_mode), supportive(_model->model == Leg), supporting(false)
+: Effector::State(_mode), model(_model), supportive(_model->model == Leg), supporting(false)
 {
 }
 
 Limb::State::State(Limb::SharedPtr _model, Mode _mode, bool _supportive)
-: model(_model), mode(_mode), supportive(_supportive), supporting(false)
+: Effector::State(_mode), model(_model), supportive(_supportive), supporting(false)
 {
 }
 

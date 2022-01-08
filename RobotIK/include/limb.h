@@ -8,6 +8,7 @@
 
 #include "types.h"
 #include "friction.h"
+#include "effector.h"
 
 #include <kdl/tree.hpp>
 #include <kdl/jntarray.hpp>
@@ -22,7 +23,7 @@ class JointAndSegmentState;
 class JointState;
 class Model;
 
-class Limb {
+class Limb : public Effector {
 public:
     using SharedPtr = std::shared_ptr<Limb>;
 
@@ -37,25 +38,12 @@ public:
         Arm
     } DynamicModelType;
 
-    ///@brief Current behavior mode this limb is in
-    enum Mode {
-        Limp,                   /// end-effector servos should go limp
-        Holding,                /// this end-effector should try to hold the given position
-        BalanceSupport,         /// use this end-effector to remain stable/balanced and support the robot
-        Stepping,               /// this end-effector should perform a stepping motion to improve balance stability
-        Seeking,                /// this end-effector should follow the given targetTF value
-        Manipulating            /// user is currently manipulating this limb and has control
-    };
-
     ///@brief Indicates how a limb should be used
-    class State {
+    class State : public Effector::State {
     public:
         using SharedPtr = std::shared_ptr<State>;
 
         Limb::SharedPtr model;
-
-        ///@brief What control mode this end-effector is currently in
-        Mode mode;
 
         ///@brief true if this limb can be used to support the robot
         /// This flag indicates if this limb can be recruited to support the robot. If false, the modes BalanceSupport,
@@ -68,30 +56,18 @@ public:
         ///@brief how soft this limb should react to forces against it
         double compliance;
 
-        ///@brief Current position of the end effector
-        /// This frame is relative to the limb base frame (usually the base link).
-        KDL::Frame position;
-
-        ///@brief Current velocity of this end effector if it is moving
-        KDL::Twist velocity;
-
-        ///@brief Target trajectory position of the end effector
-        /// This frame is relative to the limb base frame (usually the base link). This position is updated by
-        /// active trajectory actions.
-        KDL::Frame target;
-
         State();
         explicit State(Limb::SharedPtr model, Mode _mode = Limp);
         explicit State(Limb::SharedPtr model, Mode _mode, bool _supportive);
     };
 
     explicit Limb(
-            std::shared_ptr<KDL::Tree> tree,
+            const std::shared_ptr<KDL::Tree>& tree,
             std::string from_link,
             std::string to_link,
             DynamicModelType type=DynamicModelType::Generic);
 
-    inline unsigned int getNrOfJoints() const { return chain->getNrOfJoints(); }
+    [[nodiscard]] inline unsigned int getNrOfJoints() const { return chain->getNrOfJoints(); }
 
     ///@brief load limb data and allocate memory for internal variables
     bool on_activate();
