@@ -69,11 +69,11 @@ public:
     using std::vector<ET>::end;
 
     inline const_iterator find(const std::string& s) const {
-        return std::find_if(begin(), end(), [&s](const ET& e) { return e.model->to_link == s; });
+        return std::find_if(begin(), end(), [&s](const ET& e) { return e.model->link == s; });
     }
 
     inline iterator find(const std::string& s) {
-        return std::find_if(begin(), end(), [&s](const Effectors& e) { return e.model->to_link == s; });
+        return std::find_if(begin(), end(), [&s](const ET& e) { return e->link == s; });
     }
 
     inline ET& operator[](const std::string& s) {
@@ -108,6 +108,10 @@ public:
     std::string link;
 
 };
+
+template<> [[nodiscard]] Effectors<BaseEffector::State>::iterator Effectors<BaseEffector::State>::find(const std::string& s);
+template<> [[nodiscard]] Effectors<BaseEffector::State>::const_iterator Effectors<BaseEffector::State>::find(const std::string& s) const;
+
 
 } //ns:robotik
 #endif //ROBOT_DYNAMICS_EFFECTOR_H

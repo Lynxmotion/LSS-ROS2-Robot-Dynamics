@@ -233,4 +233,12 @@ Limbs Limbs::fromModel(const Model& model)
     return limbs;
 }
 
+template<> Effectors<Limb::State>::iterator Effectors<Limb::State>::find(const std::string& s) {
+    return std::find_if(begin(), end(), [&s](const Limb::State& e) { return e.model->link == s; });
+}
+template<> Effectors<Limb::State>::const_iterator Effectors<Limb::State>::find(const std::string& s) const {
+    return std::find_if(begin(), end(), [&s](const Limb::State& e) { return e.model->link == s; });
+}
+
+
 } // ns::robot

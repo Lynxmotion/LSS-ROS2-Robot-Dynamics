@@ -106,6 +106,9 @@ protected:
     std::unique_ptr<KDL::Chain> chain;
 };
 
+template<> [[nodiscard]] Effectors<Limb::State>::iterator Effectors<Limb::State>::find(const std::string& s);
+template<> [[nodiscard]] Effectors<Limb::State>::const_iterator Effectors<Limb::State>::find(const std::string& s) const;
+
 class LimbModels : public std::vector<Limb::SharedPtr>
 {
 public:
