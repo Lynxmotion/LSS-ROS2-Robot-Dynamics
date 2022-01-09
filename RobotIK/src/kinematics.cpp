@@ -354,8 +354,16 @@ void Kinematics::invalidate(std::string limb, LimbKinematics::SolutionState what
     auto itr = limbs_.find(limb);
     if(itr != limbs_.end()) {
         return itr->second.invalidate(what_changed);
-    } else
-        throw robotik::Exception::LimbNotFound(limb);
+    } else {
+        // possibly a base_link, invalidate any limbs that reference the base
+        for(auto& l: limbs_) {
+            if(l.second.limb()->base->link == limb) {
+                // invalidate this limb
+                l.second.invalidate(what_changed);
+            }
+        }
+        //throw robotik::Exception::LimbNotFound(limb);
+    }
 }
 
 bool Kinematics::updateState(State& state)
