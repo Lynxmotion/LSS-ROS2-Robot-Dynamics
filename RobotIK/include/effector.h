@@ -34,6 +34,9 @@ public:
         Manipulating            /// user is currently manipulating this limb and has control
     };
 
+    ///@brief Origin from which limb coordinates will be given (relative to robot base)
+    KDL::Frame origin;
+
     ///@brief Indicates how a limb should be used
     class State {
     public:

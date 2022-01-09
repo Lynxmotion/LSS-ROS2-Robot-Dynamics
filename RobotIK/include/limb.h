@@ -80,9 +80,6 @@ public:
     std::vector<std::string> joint_names;
     std::vector<std::string> segment_names;
 
-    ///@brief Origin from which limb coordinates will be given (relative to robot base)
-    KDL::Frame origin;
-
     ///@brief The friction between this limb and the ground/floor surface
     Friction friction;
 

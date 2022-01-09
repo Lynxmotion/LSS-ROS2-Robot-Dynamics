@@ -749,7 +749,7 @@ bool Control::update_target(const State& current, rclcpp::Time _now) {
             limb.position = current_limb_tf;
         }
 
-        if(limb.mode == Limb::Limp) {
+        if(limb.mode == Effector::Limp) {
             // this limb is not under control,
             // we will not do any Inverse Kinematics and
             // simply copy state from current
@@ -773,12 +773,12 @@ bool Control::update_target(const State& current, rclcpp::Time _now) {
             }
 #endif
             kinematics.invalidate(l_name, LimbKinematics::JOINTS);
-        } else if(limb.mode == Limb::Holding) {
+        } else if(limb.mode == Effector::Holding) {
             // We want to maintain position so we should not copy from current,
             // nor perform any inverse kinematics as joint info should not change
             // tldr; do nothing
             joint_control_publisher->set_joint_effort(limb.model->joint_names, 2.0);
-        } else if(limb.mode >= Limb::Seeking) {
+        } else if(limb.mode >= Effector::Seeking) {
             // perform inverse kinematics based on Limb targets
             auto target_tf = target_base_tf * limb.target;
             kinematics.moveEffector(*target, l_name, target_tf);
