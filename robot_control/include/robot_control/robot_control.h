@@ -86,10 +86,6 @@ public:
     ///@returns the expected state at this moment in time.
     bool update_target(const State& current, rclcpp::Time _now);
 
-    /// @brief Send force commands to joint controllers (i.e. ros2_controls)
-    /// Joint state is read from the target state and sent to the joint effort controllers.
-    void publish_efforts();
-
     /// @brief Sends target model state as TF data with a "target" prefix
     /// You can add a second RobotModel node to RViz2 and set the prefix to "target" and see a rendered model
     /// representing the target state.
