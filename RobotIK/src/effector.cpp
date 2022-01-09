@@ -14,11 +14,11 @@ BaseEffector::BaseEffector(
 }
 
 template<>
-Effectors<BaseEffector::State>::iterator Effectors<BaseEffector::State>::find(const std::string& s) {
+BaseStates::iterator BaseStates::find(const std::string& s) {
     return std::find_if(begin(), end(), [&s](const BaseEffector::State& e) { return e.model->link == s; });
 }
 template<>
-Effectors<BaseEffector::State>::const_iterator Effectors<BaseEffector::State>::find(const std::string& s) const {
+BaseStates::const_iterator BaseStates::find(const std::string& s) const {
     return std::find_if(begin(), end(), [&s](const BaseEffector::State& e) { return e.model->link == s; });
 }
 

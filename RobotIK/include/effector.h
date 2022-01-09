@@ -100,6 +100,10 @@ public:
 
     class State : public Effector::State {
     public:
+        inline State() = default;
+        inline explicit State(BaseEffector::SharedPtr base_model)
+        : model(std::move(base_model)) {}
+
         BaseEffector::SharedPtr model;
     };
 
@@ -112,8 +116,10 @@ public:
 
 };
 
-template<> [[nodiscard]] Effectors<BaseEffector::State>::iterator Effectors<BaseEffector::State>::find(const std::string& s);
-template<> [[nodiscard]] Effectors<BaseEffector::State>::const_iterator Effectors<BaseEffector::State>::find(const std::string& s) const;
+using BaseStates = Effectors<BaseEffector::State>;
+
+template<> [[nodiscard]] BaseStates::iterator BaseStates::find(const std::string& s);
+template<> [[nodiscard]] BaseStates::const_iterator BaseStates::find(const std::string& s) const;
 
 
 } //ns:robotik
