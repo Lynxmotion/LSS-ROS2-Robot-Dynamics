@@ -103,6 +103,8 @@ void Dynamics::robot_description_callback(std_msgs::msg::String::SharedPtr msg)
   auto numberOfJoints = model_->tree_->getNrOfJoints();
 
   // resize some messages
+  if(!compliance_params_msg_)
+      compliance_params_msg_ = std::make_shared<robot_model_msgs::msg::CompliantJointParams>();
   compliance_params_msg_->joints = model_->getJoints();
   compliance_params_msg_->gravity.resize(numberOfJoints);
 
