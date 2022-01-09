@@ -132,6 +132,7 @@ protected:
     robotik::State::SharedPtr current;
     State::SharedPtr target;
 
+    Effectors<BaseEffector::State> bases_;
     Limbs limbs_;
 
     // stores offset into state joint position to joint names in joint_trajectory_msg_ collection.
