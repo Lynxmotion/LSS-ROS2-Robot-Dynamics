@@ -124,9 +124,9 @@ public:
 
     /// compute IK to move the effector to the new position,
     /// updates joint angles and segment positions within the state.
-    int moveEffector(JointAndSegmentState& state, std::string limb, const KDL::Frame& effector_goal_pose);
+    int moveEffector(JointAndSegmentState& state, const std::string& limb, const KDL::Frame& effector_goal_pose);
 
-    int moveEffector(JointAndSegmentState& state, std::string limb, const KDL::Frame& effector_goal_pose, KDL::Frame& effector_out);
+    int moveEffector(JointAndSegmentState& state, const std::string& limb, const KDL::Frame& effector_goal_pose, KDL::Frame& effector_out);
 
     int moveBase(JointAndSegmentState& state, const KDL::Frame& effector_goal_pose);
 

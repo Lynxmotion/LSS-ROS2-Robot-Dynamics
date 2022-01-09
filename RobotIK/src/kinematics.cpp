@@ -47,8 +47,8 @@ bool LimbKinematics::configure(JointAndSegmentState& state)
     // get information about the chain
     for(unsigned int s=0, j=0; s < ns; s++) {
         auto segment = chain->getSegment(s);
-        auto joint = segment.getJoint();
-        auto jname = joint.getName();
+        const auto& joint = segment.getJoint();
+        const auto& jname = joint.getName();
         if(joint.getType() == KDL::Joint::None)
             continue;   // skip fixed axis
 
@@ -302,7 +302,7 @@ void Kinematics::deactivate()
 
 /// compute IK to move the effector to the new position,
 /// updates joint angles and segment positions within the state.
-int Kinematics::moveEffector(JointAndSegmentState& state, std::string limb, const KDL::Frame& effector_goal_pose)
+int Kinematics::moveEffector(JointAndSegmentState& state, const std::string& limb, const KDL::Frame& effector_goal_pose)
 {
     if(limb == model_->base_link) {
         return moveBase(state, effector_goal_pose);
@@ -315,7 +315,7 @@ int Kinematics::moveEffector(JointAndSegmentState& state, std::string limb, cons
         return -1;
 }
 
-int Kinematics::moveEffector(JointAndSegmentState& state, std::string limb, const KDL::Frame& effector_goal_pose, KDL::Frame& effector_out)
+int Kinematics::moveEffector(JointAndSegmentState& state, const std::string& limb, const KDL::Frame& effector_goal_pose, KDL::Frame& effector_out)
 {
     if(limb == model_->base_link) {
         return moveBase(state, effector_goal_pose);
