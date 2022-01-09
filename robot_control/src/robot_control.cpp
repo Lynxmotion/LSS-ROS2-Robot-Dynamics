@@ -728,7 +728,49 @@ bool Control::update_target(const State& current, rclcpp::Time _now) {
     // free rendering interface if we created one
     delete rendering_env;
 
-    // todo: update base (as an effector)
+    //
+    // update base (as an effector)
+    //
+    for(auto& base: bases_) {
+        auto base_link =  base.model->link;
+
+        KDL::Frame current_limb_base_tf;
+        if(current.findTF(base_link, current_limb_base_tf)) {
+            // make limb_tf relative to robot body
+            if(base_link != model_->base_link)
+                // translate limb base to be relative to robot base
+                current_limb_base_tf = current_base_tf.Inverse() * current_limb_base_tf;
+            if(seconds_since_last_update < 10.0) {
+                KDL::Vector delta_p = diff(current_limb_base_tf.p, base.position.p, seconds_since_last_update);
+                KDL::Vector delta_r = diff(current_limb_base_tf.M, base.position.M, seconds_since_last_update);
+                base.velocity.vel = delta_p;
+                base.velocity.rot = delta_r;
+            }
+            base.position = current_limb_base_tf;
+        }
+
+        if(base.mode == Effector::Limp) {
+            // this limb is not under control,
+            // we will not do any Inverse Kinematics and
+            // simply copy state from current
+            base.target = base.position;
+            kinematics.invalidate(base_link, LimbKinematics::JOINTS);
+        } else if(base.mode == Effector::Holding) {
+            // We want to maintain position so we should not copy from current,
+            // nor perform any inverse kinematics as joint info should not change
+            // tldr; do nothing
+        } else if(base.mode >= Effector::Seeking) {
+            // perform inverse kinematics based on Limb targets
+            // todo: we must update limbs to nail legs
+            auto target_tf = base.target;
+            if(base_link != model_->base_link)
+                target_tf = target_base_tf * target_tf;
+            // todo: this needs to include the base_link, probably the collection of dependent limbs as welll
+            kinematics.moveBase(*target, target_tf);
+        }
+    }
+
+
 
     //
     // update target state using control state from the limbs
