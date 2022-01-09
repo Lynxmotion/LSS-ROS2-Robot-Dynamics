@@ -6,12 +6,14 @@ set(INCLUDE_FILES
         trajectory/rendering.h
         trajectory/action.h
         trajectory/single-effector.h
+        trajectory/linear-trajectory.h
         trajectory/coordinated-effectors.h)
 set(SOURCE_FILES
         robot_control.cpp
         trajectory/expression.cpp
         trajectory/rendering.cpp
         trajectory/action.cpp
+        trajectory/linear-trajectory.cpp
         trajectory/single-effector.cpp
         trajectory/coordinated-effectors.cpp)
 

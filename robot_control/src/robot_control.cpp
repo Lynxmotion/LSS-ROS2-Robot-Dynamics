@@ -203,6 +203,15 @@ Control::on_configure(const rclcpp_lifecycle::State &)
                 std::bind(&Control::handle_coordinated_trajectory_accepted, this, std::placeholders::_1));
     }
 
+    if(!this->linear_trajectory_action_server_) {
+        this->linear_trajectory_action_server_ = rclcpp_action::create_server<robotik::trajectory::LinearTrajectoryAction::EffectorTrajectory>(
+                this,
+                "~/linear_trajectory",
+                std::bind(&Control::handle_linear_trajectory_goal, this, std::placeholders::_1, std::placeholders::_2),
+                std::bind(&Control::handle_linear_trajectory_cancel, this, std::placeholders::_1),
+                std::bind(&Control::handle_linear_trajectory_accepted, this, std::placeholders::_1));
+    }
+
     auto frequency = get_parameter("frequency").get_value<float>();
     RCLCPP_INFO(get_logger(), "robot control loop set to %4.2fhz", frequency);
     update_timer_ = create_wall_timer(
@@ -1154,6 +1163,81 @@ void Control::handle_coordinated_trajectory_accepted(
     actions.append(action);
 }
 
+
+/*
+ *   Linear Trajectory Action
+ */
+rclcpp_action::GoalResponse Control::handle_linear_trajectory_goal(
+        const rclcpp_action::GoalUUID & uuid,
+        std::shared_ptr<const robotik::trajectory::LinearTrajectoryAction::EffectorTrajectory::Goal> goal)
+{
+    //RCLCPP_INFO(this->get_logger(), "Received goal request with order %d", goal->order);
+    (void)uuid;
+
+    if(!target) {
+        RCLCPP_INFO(get_logger(), "Cannot accept trajectory goals without an existing state");
+        return rclcpp_action::GoalResponse::REJECT; // no segment by this name
+    }
+
+    KDL::Frame f;
+    for(auto& m: goal->effectors) {
+        if(!target->findTF(m, f)) {
+            RCLCPP_INFO(get_logger(), "Segment %s in goal request doesn't exist in state", m.c_str());
+            return rclcpp_action::GoalResponse::REJECT; // no segment by this name
+        }
+    }
+
+    return rclcpp_action::GoalResponse::ACCEPT_AND_EXECUTE;
+}
+
+rclcpp_action::CancelResponse Control::handle_linear_trajectory_cancel(
+        const std::shared_ptr<robotik::trajectory::LinearTrajectoryAction::GoalHandle> goal_handle)
+{
+    auto goal = goal_handle->get_goal();
+    RCLCPP_INFO(get_logger(), "Received request to cancel goal for linear trajectory %s",
+            goal->id.c_str());
+
+    return actions.cancel(goal_handle->get_goal_id(), lastUpdate);
+}
+
+void Control::handle_linear_trajectory_accepted(
+        const std::shared_ptr<robotik::trajectory::LinearTrajectoryAction::GoalHandle> goal_handle) try
+{
+    auto& request = goal_handle->get_goal();
+    auto& uuid = goal_handle->get_goal_id();
+
+    // set the absolute time
+    rclcpp::Time now;
+    if(request->header.stamp.sec) {
+        now = rclcpp::Time(request->header.stamp);
+    } else {
+        RCLCPP_WARN_ONCE(get_logger(), "trajectory publisher is not setting header timestamp");
+        now = lastUpdate;
+    }
+
+    for(const auto& e: request->effectors) {
+        // cancel any existing actions for this segment
+        actions.complete(
+                e,
+                now,
+                robot_model_msgs::msg::TrajectoryComplete::PREEMPTED);
+    }
+
+    // add the new action
+    auto action = std::make_shared<trajectory::LinearTrajectoryAction>(
+            bases_, limbs_, model_, now,
+            goal_handle);
+    action->uuid = uuid;
+    if(!request->id.empty())
+        action->id(request->id);
+    actions.append(action);
+}
+catch (std::exception & e) {
+    RCLCPP_ERROR(get_logger(), "trajectory failed: %s", e.what());
+    auto result = std::make_shared<robotik::trajectory::LinearTrajectoryAction::EffectorTrajectory::Result>();
+    result->result.code = robot_model_msgs::msg::TrajectoryComplete::FAILED;
+    goal_handle->abort(result);
+}
 
 }  //ns: robot_dynamics
 

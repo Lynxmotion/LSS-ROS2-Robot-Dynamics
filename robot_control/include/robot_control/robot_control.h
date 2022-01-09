@@ -32,6 +32,7 @@
 #include <publishers/JointControlPublisher.h>
 #include <robot_control/trajectory/single-effector.h>
 #include <robot_control/trajectory/coordinated-effectors.h>
+#include <robot_control/trajectory/linear-trajectory.h>
 
 #include <urdf_model/model.h>
 #include <urdf_parser/urdf_parser.h>
@@ -211,6 +212,16 @@ protected:
             const std::shared_ptr<robotik::trajectory::CoordinatedTrajectoryAction::GoalHandle> goal_handle);
     void handle_coordinated_trajectory_accepted(
             const std::shared_ptr<robotik::trajectory::CoordinatedTrajectoryAction::GoalHandle> goal_handle);
+
+    // Linear Trajectory action
+    rclcpp_action::Server<robotik::trajectory::LinearTrajectoryAction::EffectorTrajectory>::SharedPtr linear_trajectory_action_server_;
+    rclcpp_action::GoalResponse handle_linear_trajectory_goal(
+            const rclcpp_action::GoalUUID & uuid,
+            std::shared_ptr<const robotik::trajectory::LinearTrajectoryAction::EffectorTrajectory::Goal> goal);
+    rclcpp_action::CancelResponse handle_linear_trajectory_cancel(
+            const std::shared_ptr<robotik::trajectory::LinearTrajectoryAction::GoalHandle> goal_handle);
+    void handle_linear_trajectory_accepted(
+            const std::shared_ptr<robotik::trajectory::LinearTrajectoryAction::GoalHandle> goal_handle);
 };
 
 } // ns:robot_dynamics
