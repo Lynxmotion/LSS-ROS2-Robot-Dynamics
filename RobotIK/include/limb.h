@@ -56,6 +56,12 @@ public:
         State();
         explicit State(Limb::SharedPtr model, Mode _mode = Limp);
         explicit State(Limb::SharedPtr model, Mode _mode, bool _supportive);
+
+        ///@brief Compute and apply a twist at the limb effector given a twist around the limb's base
+        /// This is typically use to keep a leg nailed to the floor while the base is moving. After the base is moved
+        /// by the given twist, use apply_base_twist(t) on any limbs that should be kept at the same position and not
+        /// be affected by the base movement.
+        void apply_base_twist(KDL::Twist t, double dt);
     };
 
     explicit Limb(

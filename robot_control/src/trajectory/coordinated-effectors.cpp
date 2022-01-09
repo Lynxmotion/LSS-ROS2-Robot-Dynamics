@@ -58,6 +58,7 @@ bool CoordinatedTrajectoryAction::render(RenderingInterface& env)
     for(auto& m: members) {
         auto& limb = limbs_[m.expression.segment];
         m.segment.render(m.expression, limb.position, env);
+        limb.supporting = m.expression.supporting;
     }
     state = Rendered;
     auto tr = time_range();

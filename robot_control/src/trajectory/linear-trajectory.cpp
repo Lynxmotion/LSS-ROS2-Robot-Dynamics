@@ -43,6 +43,7 @@ LinearTrajectoryAction::LinearTrajectoryAction(
                 m.is_limb = true;
                 m.effector = &*limb_itr;
                 current_vel = limb_itr->velocity;
+                limb_itr->supporting = goal->supporting;
             } else if(bases_.end() != (base_itr = bases_.find(*e))) {
                 m.is_limb = false;
                 m.effector = &*base_itr;
@@ -126,31 +127,21 @@ void LinearTrajectoryAction::apply(const rclcpp::Time& now)
             auto cur_target_twist = KDL::Twist(cur_target_vel, cur_target_rot);
 
             // integrate velocity into current position and orientation
-            // manipulate a limb
-
-#if 1
             m.second.effector->mode = Limb::Seeking;
-            auto t = addDelta(m.second.effector->target, cur_target_twist, dt);
+            m.second.effector->target = addDelta(m.second.effector->target, cur_target_twist, dt);
 
-#else
-            if(!std::isnan(cur_target_vel.x()) && !std::isnan(cur_target_vel.y()) && !std::isnan(cur_target_vel.z())) {
-                m.second.effector->mode = Limb::Seeking;
-                m.second.effector->target.p = addDelta(m.second.effector->target.p, cur_target_vel, dt);
+            // if we are manipulating a base, then apply inverse twist to supporting limbs
+            if(!m.second.is_limb) {
+                // apply inverse twist to limbs
+                for(auto& l : limbs_) {
+                    if(l.model->base->link == m.first && l.supporting) {
+                        l.apply_base_twist(cur_target_twist, dt);
+                        if(l.mode == Effector::Holding)
+                            l.mode = Effector::Supporting;
+                    }
+                }
             }
-            if(!std::isnan(cur_target_rot.x()) && !std::isnan(cur_target_rot.y()) && !std::isnan(cur_target_rot.z())) {
-                m.second.effector->mode = Limb::Seeking;
-                m.second.effector->target.M = addDelta(m.second.effector->target.M, cur_target_rot, dt);
-            }
-#endif
-            double r, p, y;
-            t.M.GetRPY(r, p, y);
 
-            if(std::isnan(r) || std::isnan(p) || std::isnan(y)) {
-                std::cout << "  bad limb linear: " << m.first << "  rot:" << cur_target_rot << "   yaw:" << y<< std::endl;
-            } else {
-                m.second.effector->target = t;
-                std::cout << "  applied limb linear: " << m.first << "  rot:" << cur_target_rot << "   yaw:" << y<< std::endl;
-            }
         }
     }
     last_apply_ = now_ts;
@@ -168,6 +159,16 @@ LinearTrajectoryAction::get_result(const rclcpp::Time&, ResultCode code)
         result->result.effectors.emplace_back(m.first);
         result->result.transforms.emplace_back(
                 tf2::kdlToTransform(get_target_transform(m)).transform);
+
+        // revert any supporting limbs back to holding
+        if(!m.second.is_limb) {
+            // apply inverse twist to limbs
+            for(auto& l : limbs_) {
+                if(l.model->base->link == m.first && l.mode == Effector::Supporting) {
+                    l.mode = Effector::Holding;
+                }
+            }
+        }
     }
 
     result->result.duration = (float)tr.span();

@@ -403,12 +403,14 @@ void Control::publish_control_state() try
 
     auto limb_count = (short)limbs_.size();
 
+#if 0       // todo: only control program should dictate if leg is supporting or not
     // figure out what limbs are supporting
     std::vector<bool> supporting(limb_count, false);
     for(const auto& contact : current->contacts) {
         if(contact.limb > 0 && contact.limb < limb_count)
             supporting[contact.limb] = true;
     }
+#endif
 
     // limbs
     if(limb_count != (short)control_state_msg_->limbs.size())
@@ -421,7 +423,7 @@ void Control::publish_control_state() try
         ml.mode = sl.mode;
         ml.type = leg_model.model;
         ml.supportive = sl.supportive;
-        ml.supporting = supporting[i];
+        ml.supporting = sl.supporting;
         tf2::toMsg(leg_model.origin, ml.origin);
 
 #if 1
@@ -908,6 +910,9 @@ trajectory::Expression Control::expression_from_msg(
     // todo: figure out what the max joint vel/acc is
     tf.velocity = std::min(seg.velocity, 10.0);
     tf.acceleration = std::min(seg.acceleration, 4.0);
+
+    // true if this trajectory is expected to support the robot
+    tf.supporting = seg.supporting;
 
     // create motion profile
     // todo: if we use the same arg parser as path then vel/acc could be encoded here

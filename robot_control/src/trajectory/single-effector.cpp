@@ -48,6 +48,9 @@ bool TrajectoryAction::render(RenderingInterface& env)
     auto duration = member.segment.render(member.expression, limb_.position, env);
     std::cout << "rendered " << limb_.model->link << "    duration: " << duration << std::endl;
     state = Rendered;
+
+    limb_.supporting = member.expression.supporting;
+
     return duration > 0.0;
 }
 

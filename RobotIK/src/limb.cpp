@@ -207,6 +207,12 @@ Limb::State::State(Limb::SharedPtr _model, Mode _mode, bool _supportive)
 {
 }
 
+void Limb::State::apply_base_twist(KDL::Twist t, double dt)
+{
+    KDL::Twist untwisted = t.RefPoint(target.p);
+    untwisted.ReverseSign();    // move in opposite direction
+    target = KDL::addDelta(target, untwisted, dt);
+}
 
 void Limbs::zero()
 {

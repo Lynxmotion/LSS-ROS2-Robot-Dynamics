@@ -28,9 +28,9 @@ public:
     enum Mode {
         Limp,                   /// end-effector servos should go limp
         Holding,                /// this end-effector should try to hold the given position
-        BalanceSupport,         /// use this end-effector to remain stable/balanced and support the robot
-        Stepping,               /// this end-effector should perform a stepping motion to improve balance stability
         Seeking,                /// this end-effector should follow the given targetTF value
+        Supporting,             /// this end-effector is reacting to base movement to maintain support (ex. nailed to floor)
+        //Stepping,               /// this end-effector should perform a stepping motion to improve balance stability
         Manipulating            /// user is currently manipulating this limb and has control
     };
 

@@ -83,6 +83,8 @@ public:
     double velocity;
     double acceleration;
 
+    bool supporting;
+
     // the desired motion profile
     VelocityProfile velocity_profile;
 
@@ -127,7 +129,11 @@ public:
     std::vector<KDL::Vector> points;
     std::vector<KDL::Rotation> rotations;
 
-    inline Expression() : state(Pending) {}
+    inline Expression()
+      : state(Pending), start(0.0), duration(0.0), mix_mode(Replace),
+        velocity(0.0), acceleration(0.0), supporting(false), velocity_profile(Default), coordinate_mode(Absolute)
+    {}
+
     Expression(const Expression& copy) = default;
     Expression(Expression&& move) = default;
     Expression& operator=(const Expression&) = default;
