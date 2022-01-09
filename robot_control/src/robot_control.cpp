@@ -312,7 +312,7 @@ Control::on_activate(const rclcpp_lifecycle::State &)
     limbs_.reserve(model_->limbs.size());
     for(auto& limb: model_->limbs) {
         if(bases_.find(limb->base->link) == bases_.end()) {
-            bases_.emplace_back(limb->base);
+            bases_.emplace_back(BaseEffector::State(limb->base));
         }
         limbs_.emplace_back(limb);
     }
