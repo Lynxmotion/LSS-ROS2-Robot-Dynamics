@@ -361,23 +361,28 @@ Control::on_error(const rclcpp_lifecycle::State &)
     return rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn::SUCCESS;
 }
 
-void set_effector_msg(robot_model_msgs::msg::EffectorState& effector, const KDL::Frame& origin, const KDL::Frame& current_pose, const KDL::Frame& target_pose) {
+void set_effector_msg(robot_model_msgs::msg::EffectorState& effector_msg, Effector::State& effector_state, KDL::Frame origin) {
     KDL::Frame inverted_origin = origin.Inverse();
-    kdl_frame_to_pose(inverted_origin * current_pose, effector.pose);
-    kdl_frame_to_pose(inverted_origin * target_pose, effector.target);
-    KDL::Vector dv = target_pose.p - current_pose.p;
-    effector.error = std::sqrt(dv.x()*dv.x() + dv.y()*dv.y() + dv.z() * dv.z());
-    effector.velocity.linear = geometry_msgs::msg::Vector3();
-    effector.velocity.angular = geometry_msgs::msg::Vector3();
+    kdl_frame_to_pose(inverted_origin * effector_state.position, effector_msg.pose);
+    if(effector_state.mode != robotik::Limb::Limp) {
+        kdl_frame_to_pose(inverted_origin * effector_state.target, effector_msg.target);
+        KDL::Vector dv = effector_state.target.p - effector_state.position.p;
+        effector_msg.error = std::sqrt(dv.x() * dv.x() + dv.y() * dv.y() + dv.z() * dv.z());
+    } else {
+        // set target to same as position
+        effector_msg.target = effector_msg.pose;
+        effector_msg.error = 0;
+    }
+    kdl_vector_to_vector(effector_state.velocity.vel, effector_msg.velocity.linear);
+    kdl_vector_to_vector(effector_state.velocity.rot, effector_msg.velocity.angular);
 }
 
-// when there is no target active
-void set_effector_msg(robot_model_msgs::msg::EffectorState& effector, const KDL::Frame& origin, const KDL::Frame& current) {
-    kdl_frame_to_pose(origin.Inverse() * current, effector.pose);
-    effector.velocity.linear = geometry_msgs::msg::Vector3();
-    effector.velocity.angular = geometry_msgs::msg::Vector3();
-    effector.target = effector.pose;
-    effector.error = 0;
+void set_effector_msg(robot_model_msgs::msg::EffectorState& effector_msg, BaseEffector::State& effector_state) {
+    set_effector_msg(effector_msg, effector_state, effector_state.model->origin);
+}
+
+void set_effector_msg(robot_model_msgs::msg::EffectorState& effector_msg, Limb::State& limb_state) {
+    set_effector_msg(effector_msg, limb_state, limb_state.model->origin);
 }
 
 void Control::publish_control_state() try
@@ -394,6 +399,12 @@ void Control::publish_control_state() try
     //control_state_msg_->header.frame_id = prefix + current.relativeFrameName;
     control_state_msg_->header.stamp = now();
 
+#if 1
+    if(!bases_.empty()) {
+        // todo: support multiple bases here
+        set_effector_msg(control_state_msg_->base, bases_[0]);
+    }
+#else
     KDL::Frame current_base_tf;
     if(!current->findTF(model_->base_link, current_base_tf)) {
         RCLCPP_WARN_ONCE(get_logger(), "failed to publish control state because state contains no base_link");
@@ -433,32 +444,12 @@ void Control::publish_control_state() try
         tf2::toMsg(leg_model.origin, ml.origin);
 
 #if 1
+        set_effector_msg(ml.effector, sl);
+#else
         if(sl.mode != robotik::Limb::Limp)
             set_effector_msg(ml.effector, leg_model.origin, sl.position, sl.target);
         else
             set_effector_msg(ml.effector, leg_model.origin, sl.position);
-#else
-        kdl_frame_to_pose(sl.position, ml.effector.pose);
-        // todo: add velocity to model state
-        //ml.velocity = tf2::toMsg(tf2::Stamped(sl.velocity, model_state_msg_->header.stamp, model_state_msg_->header.frame_id));
-
-        KDL::Frame current_limb_tf;
-        if(current.findTF(ml.name, current_limb_tf)) {
-            // make limb_tf relative to robot body
-            current_limb_tf = current_base_tf.Inverse() * current_limb_tf;
-
-            kdl_frame_to_pose(current_limb_tf, ml.effector.target);
-        } else {
-            ml.effector.target = ml.effector.pose;
-            ml.effector.error = 0;
-        }
-
-        KDL::Frame target_limb_tf;
-        if(controlling && target.findTF(ml.name, target_limb_tf)) {
-            target_limb_tf = target_base_tf.Inverse() * target_limb_tf;
-            set_effector_msg(ml.effector, current_limb_tf, target_limb_tf);
-        } else
-            set_effector_msg(ml.effector, current_limb_tf);
 #endif
     }
 
