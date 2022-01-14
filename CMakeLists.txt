@@ -50,9 +50,6 @@ find_package(robot_model_msgs REQUIRED)
 
 add_subdirectory(RobotIK)
 
-# disabled because trajectory files are moved out of RobotIK into Control
-#add_subdirectory(legacy_robot_dynamics)
-
 # Robot Dynamics Component
 add_subdirectory(robot_dynamics)
 rclcpp_components_register_node(robot_dynamics PLUGIN "robot_dynamics::Dynamics" EXECUTABLE RobotDynamicsNode)
