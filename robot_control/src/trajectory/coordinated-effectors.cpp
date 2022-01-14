@@ -9,10 +9,10 @@
 namespace robotik::trajectory {
 
 CoordinatedTrajectoryAction::CoordinatedTrajectoryAction(
-        Limbs& limbs, Model::SharedPtr model,
+        Limbs& limbs,
         const std::vector<trajectory::Expression>& expressions,
         std::shared_ptr<CoordinatedTrajectoryAction::GoalHandle> goal_handle)
-    : model_(std::move(model)), limbs_(limbs), state(Pending)
+    : limbs_(limbs), state(Pending)
 {
     auto goal = goal_handle->get_goal();
     sync_duration_ = goal->goal.sync_duration;

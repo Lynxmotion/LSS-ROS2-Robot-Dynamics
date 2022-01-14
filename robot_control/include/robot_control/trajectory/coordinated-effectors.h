@@ -18,7 +18,7 @@ public:
     using GoalHandle = rclcpp_action::ServerGoalHandle<EffectorTrajectory>;
 
     CoordinatedTrajectoryAction(
-            Limbs& limbs, Model::SharedPtr model,
+            Limbs& limbs,
             const std::vector<trajectory::Expression>& expressions,
             std::shared_ptr<GoalHandle> goal_handle);
 

@@ -10,9 +10,9 @@
 namespace robotik::trajectory {
 
 LinearTrajectoryAction::LinearTrajectoryAction(
-        BaseStates& bases, Limbs& limbs, Model::SharedPtr model, const rclcpp::Time& now,
+        BaseStates& bases, Limbs& limbs, const rclcpp::Time& now,
         std::shared_ptr<GoalHandle> goal_handle)
-    : model_(std::move(model)), bases_(bases), limbs_(limbs),
+    : bases_(bases), limbs_(limbs),
       last_apply_(0.0),
       goal_handle_(std::move(goal_handle)),
       feedback_(std::make_shared<EffectorTrajectory::Feedback>())

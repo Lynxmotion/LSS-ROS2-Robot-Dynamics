@@ -19,8 +19,10 @@ public:
 
     //inline TrajectoryAction(Limbs& limbs, Model::SharedPtr& model): state(Pending) {}
 
-    TrajectoryAction(Limbs& limbs, Model::SharedPtr& model,
-            const trajectory::Expression& expr, std::shared_ptr<GoalHandle> goal_handle);
+    TrajectoryAction(
+            Limbs& limbs,
+            const trajectory::Expression& expr,
+            std::shared_ptr<GoalHandle> goal_handle);
 
     [[nodiscard]] std::string type() const override;
 
@@ -61,7 +63,6 @@ public:
     void send_feedback(const rclcpp::Time& now) override;
 
 protected:
-    Model::SharedPtr model_;
     Limb::State& limb_;
     TrajectoryActionMember member;
     trajectory::RenderState state;

@@ -21,7 +21,6 @@ public:
     LinearTrajectoryAction(
             BaseStates& bases,
             Limbs& limbs,
-            Model::SharedPtr model,
             const rclcpp::Time& now,
             std::shared_ptr<GoalHandle> goal_handle);
 
@@ -75,7 +74,6 @@ protected:
         Tween<KDL::Vector> linear_velocity_tweener;
         Tween<KDL::Vector> angular_velocity_tweener;
     };
-    Model::SharedPtr model_;
     BaseStates& bases_;
     Limbs& limbs_;
     double ts_;

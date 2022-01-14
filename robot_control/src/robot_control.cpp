@@ -1084,7 +1084,7 @@ void Control::handle_trajectory_accepted(
 
     // add the new action
     auto action = std::make_shared<trajectory::TrajectoryAction>(
-            limbs_, model_,
+            limbs_,
             expr, goal_handle);
     action->uuid = uuid;
     if(!request.id.empty())
@@ -1159,7 +1159,7 @@ void Control::handle_coordinated_trajectory_accepted(
 
     // add the new action
     auto action = std::make_shared<trajectory::CoordinatedTrajectoryAction>(
-            limbs_, model_,
+            limbs_,
             expressions,
             goal_handle);
     action->uuid = uuid;
@@ -1230,7 +1230,7 @@ void Control::handle_linear_trajectory_accepted(
 
     // add the new action
     auto action = std::make_shared<trajectory::LinearTrajectoryAction>(
-            bases_, limbs_, model_, now,
+            bases_, limbs_, now,
             goal_handle);
     action->uuid = uuid;
     if(!request->id.empty())

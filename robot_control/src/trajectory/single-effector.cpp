@@ -9,9 +9,10 @@
 namespace robotik::trajectory {
 
 TrajectoryAction::TrajectoryAction(
-        Limbs& limbs, Model::SharedPtr& model,
-        const trajectory::Expression& expr, std::shared_ptr<GoalHandle> goal_handle)
-        : model_(std::move(model)), limb_(limbs[expr.segment]), state(Pending)
+        Limbs& limbs,
+        const trajectory::Expression& expr,
+        std::shared_ptr<GoalHandle> goal_handle)
+        : limb_(limbs[expr.segment]), state(Pending)
 {
     member.ts = expr.start;
     member.expression = expr;
