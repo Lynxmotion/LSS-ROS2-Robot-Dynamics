@@ -958,16 +958,24 @@ trajectory::Expression Control::expression_from_msg(
 void Control::reset_callback(const std::shared_ptr<robot_model_msgs::srv::Reset::Request> request,
          std::shared_ptr<robot_model_msgs::srv::Reset::Response> response) try
 {
-    if(request->target_state)
-        resetTarget(*current);
+    RCLCPP_INFO(get_logger(), "reset    state:%c  trajectories:%c  limp:%c",
+        request->target_state ? 'Y':'N',
+        request->trajectories ? 'Y':'N',
+        request->limp ? 'Y':'N');
+
     if(request->trajectories)
         resetTrajectory();
     if(request->limp) {
         // set all limbs to limp
+        for(auto& b: bases_) {
+            b.mode = robotik::Limb::Limp;
+        }
         for(auto& l: limbs_) {
             l.mode = robotik::Limb::Limp;
         }
     }
+    if(request->target_state)
+        resetTarget(*current);
     response->success = true;
 }
 catch (std::exception & e) {
