@@ -385,6 +385,12 @@ void Control::publish_control_state() try
     if(!target || !control_state_msg_ || !control_state_pub_->is_activated())
         return;
 
+    if(!model_) {
+        // stale joint data
+        RCLCPP_WARN_THROTTLE(get_logger(), *get_clock(), 5000, "no robot model, control is deactivated");
+        return;
+    }
+
     //control_state_msg_->header.frame_id = prefix + current.relativeFrameName;
     control_state_msg_->header.stamp = now();
 
@@ -487,6 +493,12 @@ void Control::control_update() try {
     // ensure we have state to publish
     if(!current)
         return;
+
+    if(!model_) {
+        // stale joint data
+        RCLCPP_WARN_THROTTLE(get_logger(), *get_clock(), 5000, "no robot model, control is deactivated");
+        return;
+    }
 
     if(model_->tree_ && !model_->limbs.empty()
                 && current->lastJointStateUpdate.get_clock_type()==RCL_ROS_TIME
@@ -1034,8 +1046,13 @@ rclcpp_action::GoalResponse Control::handle_trajectory_goal(
     (void)uuid;
     auto& request = goal->goal;
 
+    if(!model_) {
+        RCLCPP_ERROR(get_logger(), "no active robot model, rejecting trajectory request");
+        return rclcpp_action::GoalResponse::REJECT;
+    }
+
     if(!target) {
-        RCLCPP_INFO(get_logger(), "Cannot accept trajectory goals without an existing state");
+        RCLCPP_ERROR(get_logger(), "Cannot accept trajectory goals without an existing state");
         return rclcpp_action::GoalResponse::REJECT; // no segment by this name
     }
 
@@ -1104,8 +1121,13 @@ rclcpp_action::GoalResponse Control::handle_coordinated_trajectory_goal(
     (void)uuid;
     auto& request = goal->goal;
 
+    if(!model_) {
+        RCLCPP_ERROR(get_logger(), "no active robot model, rejecting trajectory request");
+        return rclcpp_action::GoalResponse::REJECT;
+    }
+
     if(!target) {
-        RCLCPP_INFO(get_logger(), "Cannot accept trajectory goals without an existing state");
+        RCLCPP_ERROR(get_logger(), "Cannot accept trajectory goals without an existing state");
         return rclcpp_action::GoalResponse::REJECT; // no segment by this name
     }
 
@@ -1179,8 +1201,13 @@ rclcpp_action::GoalResponse Control::handle_linear_trajectory_goal(
     //RCLCPP_INFO(this->get_logger(), "Received goal request with order %d", goal->order);
     (void)uuid;
 
+    if(!model_) {
+        RCLCPP_ERROR(get_logger(), "no active robot model, rejecting trajectory request");
+        return rclcpp_action::GoalResponse::REJECT;
+    }
+
     if(!target) {
-        RCLCPP_INFO(get_logger(), "Cannot accept trajectory goals without an existing state");
+        RCLCPP_ERROR(get_logger(), "Cannot accept trajectory goals without an existing state");
         return rclcpp_action::GoalResponse::REJECT; // no segment by this name
     }
 
