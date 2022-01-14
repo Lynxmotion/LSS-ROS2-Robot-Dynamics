@@ -530,7 +530,7 @@ void Control::control_update() try {
         // update the target state using the limb model
         if(current && update_target(*current, _now)) {
             // send target state to (typically) ros2 controls
-            joint_control_publisher->publish();
+            joint_control_publisher->publish(_now);
         }
 
         // publish our control state if we don't have it setup on a dedicated timer

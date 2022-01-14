@@ -50,7 +50,7 @@ namespace robotik {
 
         ///@brief Publish all joint control messages
         /// Joint state/angles are read from the target state and sent to the joint position/velocity controllers.
-        void publish();
+        void publish(const rclcpp::Time& now);
 
     protected:
         std::string frame_id_;
@@ -58,6 +58,7 @@ namespace robotik {
         std::shared_ptr<JointState> state_;
 
         bool efforts_updated;
+        rclcpp::Time last_efforts_update;
 
         // lookup the joint index in state using the index
         JointStateOrdinalMap joint_ordinal_map;
@@ -80,8 +81,8 @@ namespace robotik {
         rclcpp::Client<lifecycle_msgs::srv::GetState>::SharedFuture jointctrl_get_state_future_;
         rclcpp::Client<lifecycle_msgs::srv::ChangeState>::SharedFuture jointctrl_change_state_future_;
 
-        void publish_joint_trajectory();
-        void publish_efforts();
+        void publish_joint_trajectory(const rclcpp::Time& now);
+        void publish_efforts(const rclcpp::Time& now);
 
         // todo: refactor this code into a LifecycleNodeService class for getting and setting service state
         //     also add a ControllerManager one

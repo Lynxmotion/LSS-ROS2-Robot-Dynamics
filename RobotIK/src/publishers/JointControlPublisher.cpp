@@ -127,7 +127,7 @@ void JointControlPublisher::activate_position_controller(bool active)
     }
 }
 
-void JointControlPublisher::publish_joint_trajectory()
+void JointControlPublisher::publish_joint_trajectory(const rclcpp::Time&)
 {
     if(!state_)
         return;
@@ -174,17 +174,23 @@ void JointControlPublisher::publish_joint_trajectory()
     joint_trajectory_pub_->publish(*joint_trajectory_msg_);
 }
 
-void JointControlPublisher::publish_efforts() {
+void JointControlPublisher::publish_efforts(const rclcpp::Time& now) {
     if(joint_efforts_pub_) {
         joint_efforts_pub_->publish(*joint_efforts_msg_);
         efforts_updated = false;
+        last_efforts_update = now;
     }
 }
 
-void JointControlPublisher::publish() {
-    publish_joint_trajectory();
-    if(efforts_updated)
-        publish_efforts();
+void JointControlPublisher::publish(const rclcpp::Time& now) {
+    publish_joint_trajectory(now);
+
+    double last_efforts_update_secs = (last_efforts_update.get_clock_type() == RCL_ROS_TIME)
+            ? (now - last_efforts_update).seconds()
+            : 0.0;
+
+    if(efforts_updated || last_efforts_update_secs < 1.0)
+        publish_efforts(now);
 }
 
 }
