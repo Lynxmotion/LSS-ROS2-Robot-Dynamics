@@ -135,7 +135,12 @@ protected:
     robotik::State::SharedPtr current;
     State::SharedPtr target;
 
+    // List of base within the robot
+    // The root robot base must be 0th element in bases array, other bases may be for example a
+    // torso joint.
     BaseStates bases_;
+
+    // arms and/or leg effectors on the robot
     Limbs limbs_;
 
     // stores offset into state joint position to joint names in joint_trajectory_msg_ collection.

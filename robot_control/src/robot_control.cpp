@@ -708,45 +708,26 @@ bool Control::update_target(const State& current, rclcpp::Time _now)
         resetTarget(current);
         if(!target)
             // failed to establish target state from current
-            RCLCPP_WARN_THROTTLE(get_logger(), *get_clock(), 5000,  "failed to reset target state from current");
+            RCLCPP_WARN_THROTTLE(get_logger(), *get_clock(), 5000,
+                             "failed to reset target state from current");
             return false;
     }
 
-    // always move the base of the target state to match the current base state
-    KDL::Frame odom_tf;
-    if(current.findTF(model_->odom_link, odom_tf))
-        target->tf[model_->odom_link] = odom_tf;
-
-    KDL::Frame current_base_tf;
-    if(!current.findTF(model_->base_link, current_base_tf)) {
-        RCLCPP_WARN_THROTTLE(get_logger(), *get_clock(), 5000, "failed to publish control state because state contains no base_link");
+    KDL::Frame robot_current_tf;
+    if(!current.findTF(model_->base_link, robot_current_tf)) {
+        RCLCPP_WARN_THROTTLE(get_logger(), *get_clock(), 5000,
+                             "failed to publish control state because state contains no base_link");
         return false;
     }
 
-    KDL::Frame target_base_tf;
-    if(!target->findTF(model_->base_link, target_base_tf)) {
-        RCLCPP_WARN_THROTTLE(get_logger(), *get_clock(), 5000, "failed to publish control state because target state contains no base_link");
+    KDL::Frame robot_target_tf;
+    if(!target->findTF(model_->base_link, robot_target_tf)) {
+        RCLCPP_WARN_THROTTLE(get_logger(), *get_clock(), 5000,
+                             "failed to publish control state because target state contains no base_link");
         return false;
     }
 
-#if 1
-    // todo: update Kinematics to have changes in base instead do changes in limbs
-    // for now, copy just the base position from current to target
-    target_base_tf.p = current_base_tf.p;
-    target->tf[model_->base_link] = target_base_tf;
-
-#else
-    // todo: track changes in state's odom => base_link frame, and apply those changes to
-    //       our target state as an offset. We can't just copy it like odom because we also
-    //       want to manipulate the base frame.
-    if(model_->interactingSegment != model_->base_link) {
-        // as long as the user is not interacting with the base,
-        // copy the base from sensed to target
-        KDL::Frame base_tf;
-        if(current.findTF(model_->base_link, base_tf))
-            target->tf[model_->base_link] = base_tf;
-    }
-#endif
+    // todo: move World and odom frame over wholesale (any frames outside the robot)
 
     double seconds_since_last_update = (lastUpdate.get_clock_type() == RCL_ROS_TIME)
             ? (_now - lastUpdate).seconds()
@@ -763,7 +744,7 @@ bool Control::update_target(const State& current, rclcpp::Time _now)
             // make limb_tf relative to robot body
             if(base_link != model_->base_link)
                 // translate limb base to be relative to robot base
-                current_limb_base_tf = current_base_tf.Inverse() * current_limb_base_tf;
+                current_limb_base_tf = robot_current_tf.Inverse() * current_limb_base_tf;
             if(seconds_since_last_update < 10.0) {
                 KDL::Vector delta_p = diff(current_limb_base_tf.p, base.position.p, seconds_since_last_update);
                 KDL::Vector delta_r = diff(current_limb_base_tf.M, base.position.M, seconds_since_last_update);
@@ -805,7 +786,7 @@ bool Control::update_target(const State& current, rclcpp::Time _now)
         KDL::Frame current_limb_tf;
         if(current.findTF(l_name, current_limb_tf)) {
             // make limb_tf relative to robot body
-            current_limb_tf = current_base_tf.Inverse() * current_limb_tf;
+            current_limb_tf = robot_current_tf.Inverse() * current_limb_tf;
             if(seconds_since_last_update < 10.0) {
                 KDL::Vector delta_p = diff(current_limb_tf.p, limb.position.p, seconds_since_last_update);
                 KDL::Vector delta_r = diff(current_limb_tf.M, limb.position.M, seconds_since_last_update);
@@ -846,7 +827,7 @@ bool Control::update_target(const State& current, rclcpp::Time _now)
             joint_control_publisher->set_joint_effort(limb.model->joint_names, 2.0);
         } else if(limb.mode >= Effector::Seeking) {
             // perform inverse kinematics based on Limb targets
-            auto target_tf = target_base_tf * limb.target;
+            auto target_tf = robot_target_tf * limb.target;
             kinematics.moveEffector(*target, l_name, target_tf);
             joint_control_publisher->set_joint_effort(limb.model->joint_names, 2.0);
         }
