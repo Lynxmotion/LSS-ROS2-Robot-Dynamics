@@ -428,7 +428,7 @@ void Control::publish_control_state() try
         set_effector_msg(control_state_msg_->base, KDL::Frame(), current_base_tf, target_base_tf);
     } else
         set_effector_msg(control_state_msg_->base, KDL::Frame(), current_base_tf);
-
+#endif
 
     auto limb_count = (short)limbs_.size();
 
