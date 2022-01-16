@@ -78,9 +78,11 @@ public:
     rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn
     on_error(const rclcpp_lifecycle::State &) override;
 
-    /*
-     * Integration of public interface to old Control class here
-     */
+
+    ///@brief Apply any active trajectories to limb target state
+    /// Active trajectories come from Ros2 actions and apply linear and/or angular transformations to limb
+    /// or base frame targets.
+    void apply_actions(const State& current, rclcpp::Time _now);
 
     ///@brief Update any required trajectories based on current state
     /// Apply trajectories to state

@@ -531,9 +531,14 @@ void Control::control_update() try {
         current->lastSegmentStateUpdate = _now;
 
         // update the target state using the limb model
-        if(current && update_target(*current, _now)) {
-            // send target state to (typically) ros2 controls
-            joint_control_publisher->publish(_now);
+        if(current) {
+            // apply trajectory actions
+            apply_actions(*current, _now);
+
+            if(update_target(*current, _now)) {
+                // send target state to (typically) ros2 controls
+                joint_control_publisher->publish(_now);
+            }
         }
 
         // publish our control state if we don't have it setup on a dedicated timer
@@ -639,12 +644,66 @@ public:
 };
 
 
+void Control::apply_actions(const State& current, rclcpp::Time _now)
+{
+    double now_ts = _now.seconds();
+    TrajectoryRenderEnv* rendering_env = nullptr;
+
+    //
+    // Update limbs using any active trajectory actions
+    //
+    std::vector<trajectory::TrajectoryActions::const_iterator> expired;
+    for(auto a=actions.begin(), _a=actions.end(); a!=_a; a++) {
+        auto& action = *a;
+        trajectory::TimeRange tr = action->time_range();
+        if(now_ts < tr.begin)
+            continue;
+
+        if(action->render_state() != trajectory::Rendered) {
+            // this action must be rendered now
+            if(!rendering_env) {
+                // create the rendering environment
+                rendering_env = new TrajectoryRenderEnv();
+                rendering_env->model = &*model_;
+                rendering_env->state = &current;
+            }
+
+            action->render(*rendering_env);
+
+            // since we rendered, get the updated time range
+            tr = action->time_range();
+            std::cout << "rendered " << action->type() << ":" << action->id() << "   " << std::fixed << std::setprecision(4) << "  duration: " << tr.span() << std::endl;
+
+        }
+
+        // apply the action to the limb state
+        action->apply(_now);
+
+        // if this action has expired, remove it
+        if(action->expired(_now)) {
+            action->complete(_now);
+            expired.emplace_back(a);
+        }
+    }
+
+    // free rendering interface if we created one
+    delete rendering_env;
+
+    // erase expired actions
+    if(!expired.empty()) {
+        // erase from end to beginning so our expired iterators are not invalidated as we erase
+        for(auto a=expired.rbegin(), _a=expired.rend(); a!=_a; a++) {
+            actions.erase(*a);
+        }
+    }
+}
+
+
 ///@brief Update any required trajectories based on current state
 /// Apply trajectories to state
 ///@returns the expected state at this moment in time.
-bool Control::update_target(const State& current, rclcpp::Time _now) {
-    double now_ts = _now.seconds();
-
+bool Control::update_target(const State& current, rclcpp::Time _now)
+{
     if(!target) {
         resetTarget(current);
         if(!target)
@@ -692,48 +751,6 @@ bool Control::update_target(const State& current, rclcpp::Time _now) {
     double seconds_since_last_update = (lastUpdate.get_clock_type() == RCL_ROS_TIME)
             ? (_now - lastUpdate).seconds()
             : INFINITY;
-
-    TrajectoryRenderEnv* rendering_env = nullptr;
-
-    //
-    // Update limbs using any active trajectory actions
-    //
-    std::vector<trajectory::TrajectoryActions::const_iterator> expired;
-    for(auto a=actions.begin(), _a=actions.end(); a!=_a; a++) {
-        auto& action = *a;
-        trajectory::TimeRange tr = action->time_range();
-        if(now_ts < tr.begin)
-            continue;
-
-        if(action->render_state() != trajectory::Rendered) {
-            // this action must be rendered now
-            if(!rendering_env) {
-                // create the rendering environment
-                rendering_env = new TrajectoryRenderEnv();
-                rendering_env->model = &*model_;
-                rendering_env->state = &current;
-            }
-
-            action->render(*rendering_env);
-
-            // since we rendered, get the updated time range
-            tr = action->time_range();
-            std::cout << "rendered " << action->type() << ":" << action->id() << "   " << std::fixed << std::setprecision(4) << "  duration: " << tr.span() << std::endl;
-
-        }
-
-        // apply the action to the limb state
-        action->apply(_now);
-
-        // if this action has expired, remove it
-        if(action->expired(_now)) {
-            action->complete(_now);
-            expired.emplace_back(a);
-        }
-    }
-
-    // free rendering interface if we created one
-    delete rendering_env;
 
     //
     // update base (as an effector)
@@ -835,18 +852,9 @@ bool Control::update_target(const State& current, rclcpp::Time _now) {
         }
     }
 
-    // erase expired actions
-    if(!expired.empty()) {
-        // erase from end to beginning so our expired iterators are not invalidated as we erase
-        for(auto a=expired.rbegin(), _a=expired.rend(); a!=_a; a++) {
-            actions.erase(*a);
-        }
-    }
-
     lastUpdate = _now;
 
     // update state of target
-    // todo: this should be done after target is updated
     kinematics.updateState(*target);
 
     return true;
