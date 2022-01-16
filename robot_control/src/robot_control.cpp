@@ -361,6 +361,18 @@ Control::on_error(const rclcpp_lifecycle::State &)
     return rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn::SUCCESS;
 }
 
+void Control::resetTarget(const State& current) {
+    target = std::make_shared<robotik::State>(current);
+    joint_control_publisher->state(target);
+}
+
+void Control::resetTrajectory() {
+    for(auto& action: actions) {
+        action->complete(lastUpdate, robot_model_msgs::msg::TrajectoryComplete::RESET );
+    }
+    actions.clear();
+}
+
 void set_effector_msg(robot_model_msgs::msg::EffectorState& effector_msg, Effector::State& effector_state, KDL::Frame origin) {
     KDL::Frame inverted_origin = origin.Inverse();
     kdl_frame_to_pose(inverted_origin * effector_state.position, effector_msg.pose);
@@ -553,25 +565,6 @@ void Control::publish_diagnostics() try {
 } catch (std::exception & e) {
     RCLCPP_ERROR(get_logger(), "Failed to poll and publish data: %s", e.what());
     deactivate();
-}
-
-
-
-/*
- * Integration of old Control class here
- */
-
-
-void Control::resetTarget(const State& current) {
-    target = std::make_shared<robotik::State>(current);
-    joint_control_publisher->state(target);
-}
-
-void Control::resetTrajectory() {
-    for(auto& action: actions) {
-        action->complete(lastUpdate, robot_model_msgs::msg::TrajectoryComplete::RESET );
-    }
-    actions.clear();
 }
 
 
