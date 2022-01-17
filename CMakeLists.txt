@@ -62,6 +62,12 @@ rclcpp_components_register_node(robot_control PLUGIN "robot_dynamics::Control" E
 add_dependencies(RobotControlNode robot_control)
 
 
+# Robot Localiation Component
+add_subdirectory(robot_localization)
+rclcpp_components_register_node(robot_localization PLUGIN "robot_dynamics::RobotLocalization" EXECUTABLE RobotLocalizationNode)
+add_dependencies(RobotLocalizationNode robot_localization)
+
+
 if(BUILD_TESTING)
   find_package(ament_lint_auto REQUIRED)
   # the following line skips the linter which checks for copyrights
