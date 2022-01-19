@@ -25,5 +25,32 @@ std::string generate_id(int length)
     return str;
 }
 
+CoordinateMask coordinate_mask_from_string(const std::string& s) {
+    if(s.empty())
+        return CoordinateMask::All;
+    CoordinateMask m;
+    unsigned part = 0;
+    for(auto& c : s) {
+        if(part == 0) {
+            // reading position
+            switch(c) {
+                case 'X': m |= CoordinateMask::X; break;
+                case 'Y': m |= CoordinateMask::Y; break;
+                case 'Z': m |= CoordinateMask::Z; break;
+                case '*': m |= CoordinateMask::XYZ; break;
+            }
+        } else if(part == 1) {
+            // reading rotation
+            switch(c) {
+                case 'R': m |= CoordinateMask::Roll; break;
+                case 'P': m |= CoordinateMask::Pitch; break;
+                case 'Y': m |= CoordinateMask::Yaw; break;
+                case '*': m |= CoordinateMask::RPY; break;
+            }
+        }
+    }
+    return m;
+}
+
 } // ns:robotik
 

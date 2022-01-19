@@ -48,6 +48,56 @@ public:
     inline EulerRotation(double _r=0, double _p=0, double _y=0) : roll(_r), pitch(_p), yaw(_y) {}
 };
 
+enum class CoordinateMask {
+    None = 0,
+
+    X = 1,
+    Y = 2,
+    Z = 4,
+
+    Roll = 8,
+    Pitch = 16,
+    Yaw = 32,
+
+    XY = X|Y,
+    YZ = Y|Z,
+    XZ = X|Z,
+    XYZ = X|Y|Z,
+
+    RP = Roll|Pitch,
+    RPY = Roll|Pitch|Yaw,
+
+    All = X|Y|Z|Roll|Pitch|Yaw
+};
+
+inline CoordinateMask operator &(CoordinateMask lhs, CoordinateMask rhs)
+{
+    return static_cast<CoordinateMask> (
+            static_cast<std::underlying_type<CoordinateMask>::type>(lhs) &
+            static_cast<std::underlying_type<CoordinateMask>::type>(rhs)
+            );
+}
+
+inline CoordinateMask operator |(CoordinateMask lhs, CoordinateMask rhs)
+{
+    return static_cast<CoordinateMask> (
+            static_cast<std::underlying_type<CoordinateMask>::type>(lhs) |
+            static_cast<std::underlying_type<CoordinateMask>::type>(rhs)
+            );
+}
+
+inline CoordinateMask& operator |=(CoordinateMask& lhs, CoordinateMask rhs)
+{
+    lhs = static_cast<CoordinateMask> (
+            static_cast<std::underlying_type<CoordinateMask>::type>(lhs) |
+            static_cast<std::underlying_type<CoordinateMask>::type>(rhs)
+            );
+    return lhs;
+}
+
+CoordinateMask coordinate_mask_from_string(const std::string& s);
+
+
 } // ns::robotik
 
 #endif //LSS_HUMANOID_TYPES_H
