@@ -9,6 +9,7 @@ set(INCLUDE_FILES
         listeners/ModelStateListener.h
         listeners/URDFModelListener.h
         listeners/SegmentStateListener.h
+        publishers/LifecycleManager.h
         publishers/JointControlPublisher.h)
 set(SOURCE_FILES
         types.cpp model.cpp limb.cpp frame-ref.cpp
@@ -19,6 +20,7 @@ set(SOURCE_FILES
         listeners/ModelStateListener.cpp
         listeners/URDFModelListener.cpp
         listeners/SegmentStateListener.cpp
+        publishers/LifecycleManager.cpp
         publishers/JointControlPublisher.cpp)
 
 list(TRANSFORM INCLUDE_FILES PREPEND include/)
