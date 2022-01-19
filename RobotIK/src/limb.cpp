@@ -193,17 +193,12 @@ void Limb::loadSupportPolygon(urdf::ModelInterfaceSharedPtr urdf_model_) {
 }
 
 Limb::State::State()
-: Effector::State(Limp), supportive(false), supporting(false)
+: Effector::State(Limp)
 {
 }
 
 Limb::State::State(Limb::SharedPtr _model, Mode _mode)
-: Effector::State(_mode), model(_model), supportive(_model->model == Leg), supporting(false)
-{
-}
-
-Limb::State::State(Limb::SharedPtr _model, Mode _mode, bool _supportive)
-: Effector::State(_mode), model(_model), supportive(_supportive), supporting(false)
+: Effector::State(_mode), model(_model)
 {
 }
 
@@ -217,7 +212,7 @@ void Limb::State::apply_base_twist(KDL::Twist t, double dt)
 void Limbs::zero()
 {
     for(auto& limb: *this) {
-        limb.mode = (limb.model->model == Limb::Leg) ? Limb::Holding : Limb::Limp;
+        limb.mode = (limb.model->model == Limb::Leg) ? Limb::Hold : Limb::Limp;
         limb.position = KDL::Frame();
         limb.velocity = KDL::Twist();
         limb.target = KDL::Frame();
@@ -230,11 +225,9 @@ Limbs Limbs::fromModel(const Model& model)
     // ensure we have the same number of limbs
     limbs.reserve(model.limbs.size());
     for(auto& l: model.limbs) {
-        auto isLeg = l->model == robotik::Limb::Leg;
         limbs.emplace_back(
                 l,
-                Limb::Limp,
-                isLeg);
+                Limb::Limp);
     }
     return limbs;
 }

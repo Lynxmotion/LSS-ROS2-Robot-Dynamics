@@ -10,8 +10,10 @@
 #include <string>
 #include <vector>
 #include <memory>
+#include <types.h>
 
 #include "frame-ref.h"
+#include "effector.h"
 
 namespace robotik {
 namespace trajectory {
@@ -78,6 +80,8 @@ public:
     // todo: possibly we could indicate how we want to integrate with existing trajectory
     MixMode mix_mode;
 
+    Effector::Mode mode_in, mode_out;
+
     // target velocity and acceleration
     // values exceeding limits of segment or joint will be clamped.
     double velocity;
@@ -122,6 +126,9 @@ public:
     /// subsequent points can be encoded as relative to the previous or absolute
     /// from within the relative_frame
     CoordinateMode coordinate_mode;
+
+    /// @brief determine what parts of a coordinate will get applied
+    CoordinateMask coordinate_mask;
 
     /// @brief trajectory points
     /// can be direct trajectory transforms but also used as input to the path

@@ -50,8 +50,6 @@ bool TrajectoryAction::render(RenderingInterface& env)
     std::cout << "rendered " << limb_.model->link << "    duration: " << duration << std::endl;
     state = Rendered;
 
-    limb_.supporting = member.expression.supporting;
-
     return duration > 0.0;
 }
 
@@ -62,8 +60,14 @@ void TrajectoryAction::apply(const rclcpp::Time& now)
         return;
 
     ts -= member.ts;        // convert time to beginning of rendered segment trajectory
-    limb_.target = member.segment.Pos(ts);
-    limb_.mode = Limb::Seeking;
+
+    limb_.apply(
+            member.segment.Pos(ts),
+            member.expression.coordinate_mask);
+
+    if(member.expression.mode_in != Limb::Unassigned)
+        limb_.mode = member.expression.mode_in;
+    limb_.status = Limb::Status::Seeking;
     //std::cout << "    applied " << limb.model->to_link << "    pos: " << ts << std::endl;
 }
 
@@ -84,7 +88,9 @@ void TrajectoryAction::complete(const rclcpp::Time&, ResultCode code)
     }
 #endif
 
-    limb_.mode = Limb::Holding;
+    if(member.expression.mode_out != Limb::Unassigned)
+        limb_.mode = member.expression.mode_out;
+    limb_.status = Limb::Status::Holding;
 
     // signal complete
     auto result = std::make_shared<EffectorTrajectory::Result>();

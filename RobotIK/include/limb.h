@@ -42,20 +42,11 @@ public:
 
         Limb::SharedPtr model;
 
-        ///@brief true if this limb can be used to support the robot
-        /// This flag indicates if this limb can be recruited to support the robot. If false, the modes BalanceSupport,
-        /// and Stepping would be invalid.
-        bool supportive;
-
-        ///@brief true if this limb is currently being used to support the robot
-        bool supporting;
-
         ///@brief how soft this limb should react to forces against it
         double compliance;
 
         State();
         explicit State(Limb::SharedPtr model, Mode _mode = Limp);
-        explicit State(Limb::SharedPtr model, Mode _mode, bool _supportive);
 
         ///@brief Compute and apply a twist at the limb effector given a twist around the limb's base
         /// This is typically use to keep a leg nailed to the floor while the base is moving. After the base is moved

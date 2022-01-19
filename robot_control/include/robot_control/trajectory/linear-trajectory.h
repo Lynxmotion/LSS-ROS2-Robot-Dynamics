@@ -81,6 +81,7 @@ protected:
     // todo: add sync_duration to linear_traj - we calculate time to reach target velocity, then tween velocity based on time, so just take the max duration then instead of per element
     double linear_acceleration_;
     double angular_acceleration_;
+    Effector::Mode mode_in, mode_out;
     std::map<std::string, Member> members;
     std::shared_ptr<GoalHandle> goal_handle_;
     std::shared_ptr<EffectorTrajectory::Feedback> feedback_;

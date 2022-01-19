@@ -9,6 +9,7 @@
 #include <vector>
 
 #include "exception.h"
+#include "types.h"
 
 #include <kdl/tree.hpp>
 #include <kdl/jntarray.hpp>
@@ -26,12 +27,22 @@ public:
 
     ///@brief Current behavior mode this limb is in
     enum Mode {
+        Unassigned,
         Limp,                   /// end-effector servos should go limp
-        Holding,                /// this end-effector should try to hold the given position
-        Seeking,                /// this end-effector should follow the given targetTF value
-        Supporting,             /// this end-effector is reacting to base movement to maintain support (ex. nailed to floor)
+        Hold,                   /// this end-effector should try to hold the given position
+        Support,                /// this end-effector is supporting the robot (ex. nailed to floor)
+        AutoSupport             /// the contact detection algorithm determines if this limb is supporting or not
+        //Seeking,                /// this end-effector should follow the given targetTF value
+        //SupportSeeking        /// this end-effector is supporting the robot while seeking a target
         //Stepping,               /// this end-effector should perform a stepping motion to improve balance stability
-        Manipulating            /// user is currently manipulating this limb and has control
+        //Manipulating            /// user is currently manipulating this limb and has control
+    };
+
+    enum class Status {
+        Limp = Mode::Limp,
+        Holding,
+        Supporting,
+        Seeking
     };
 
     ///@brief Origin from which limb coordinates will be given (relative to robot base)
@@ -42,6 +53,8 @@ public:
     public:
         ///@brief What control mode this end-effector is currently in
         Mode mode;
+
+        Status status;
 
         ///@brief Current position of the end effector
         /// This frame is relative to the limb base frame (usually the base link).
@@ -55,9 +68,21 @@ public:
         /// active trajectory actions.
         KDL::Frame target;
 
-        inline explicit State(Mode _mode = Limp)
+        inline explicit State(Mode _mode = Mode::Limp)
         : mode(_mode)
         {}
+
+        ///@brief Returns true if the effector is supporting the robot
+        [[nodiscard]] inline bool is_supporting() const {
+            return mode == Support || (mode == AutoSupport && status == Status::Supporting);
+        }
+
+        void limp() {
+            mode = Limp;
+            status = Status::Limp;
+        }
+
+        void apply(const KDL::Frame& pose, CoordinateMask mask = CoordinateMask::All);
     };
 };
 
@@ -117,6 +142,12 @@ public:
 };
 
 using BaseStates = Effectors<BaseEffector::State>;
+
+Effector::Mode effector_mode_from_msg(int8_t m);
+int8_t effector_mode_to_msg(Effector::Mode m);
+
+int8_t effector_status_to_msg(Effector::Status s);
+Effector::Status effector_status_from_msg(int8_t s);
 
 template<> [[nodiscard]] BaseStates::iterator BaseStates::find(const std::string& s);
 template<> [[nodiscard]] BaseStates::const_iterator BaseStates::find(const std::string& s) const;

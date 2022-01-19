@@ -22,7 +22,6 @@
 #include "robot_model_msgs/srv/set_limb.hpp"
 
 #include <robotik.h>
-//#include "types.h"
 #include <state.h>
 #include <limb.h>
 #include <raf.h>

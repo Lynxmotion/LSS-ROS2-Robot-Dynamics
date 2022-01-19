@@ -449,10 +449,9 @@ void Control::publish_control_state() try
         auto& sl = limbs_[i];
         auto& leg_model = *sl.model;
         ml.name = leg_model.link;
-        ml.mode = sl.mode;
         ml.type = leg_model.model;
-        ml.supportive = sl.supportive;
-        ml.supporting = sl.supporting;
+        ml.mode = effector_mode_to_msg(sl.mode);
+        ml.status = effector_status_to_msg(sl.status);
         tf2::toMsg(leg_model.origin, ml.origin);
 
 #if 1
@@ -736,45 +735,58 @@ bool Control::update_target(const State& current, rclcpp::Time _now)
     //
     // update base (as an effector)
     //
-    for(auto& base: bases_) {
+
+    // update any other bases
+    for(size_t b=0, _b=bases_.size(); b < _b; b++) {
+        auto& base = bases_[b];
         auto base_link =  base.model->link;
+
+        // ensure 0th base is the main robot base_link
+        assert(b > 0 || base_link == model_->base_link);
 
         KDL::Frame current_limb_base_tf;
         if(current.findTF(base_link, current_limb_base_tf)) {
             // make limb_tf relative to robot body
-            if(base_link != model_->base_link)
+            if(b > 0)
                 // translate limb base to be relative to robot base
                 current_limb_base_tf = robot_current_tf.Inverse() * current_limb_base_tf;
+
+            // compute base velocity
             if(seconds_since_last_update < 10.0) {
                 KDL::Vector delta_p = diff(current_limb_base_tf.p, base.position.p, seconds_since_last_update);
                 KDL::Vector delta_r = diff(current_limb_base_tf.M, base.position.M, seconds_since_last_update);
                 base.velocity.vel = delta_p;
                 base.velocity.rot = delta_r;
             }
+
+            // set base current position
             base.position = current_limb_base_tf;
         }
 
-        if(base.mode == Effector::Limp) {
+        if(b == 0) {
+            // update main robot base (the main base_link)
+            //
+
+            // we cant manipluate base directly, always copy the transform directly from current
+            base.target = base.position;
+            target->tf[base_link] = current_limb_base_tf;
+
+        } else if(base.status == Effector::Status::Limp) {
             // this limb is not under control,
             // we will not do any Inverse Kinematics and
             // simply copy state from current
             base.target = base.position;
-            kinematics.invalidate(base_link, LimbKinematics::JOINTS);
-        } else if(base.mode == Effector::Holding) {
-            // We want to maintain position so we should not copy from current,
-            // nor perform any inverse kinematics as joint info should not change
-            // tldr; do nothing
-        } else if(base.mode >= Effector::Seeking) {
+            //kinematics.moveBase(*target, base.target);
+            //kinematics.invalidate(base_link, LimbKinematics::JOINTS);   // todo: shouldnt need this, since limbs are relative to robot base
+        } else if(base.status == Effector::Status::Seeking) {
             // perform inverse kinematics based on Limb targets
-            // todo: we must update limbs to nail legs
             auto target_tf = base.target;
             if(base_link != model_->base_link)
-                target_tf = target_base_tf * target_tf;
-            // todo: this needs to include the base_link, probably the collection of dependent limbs as welll
+                target_tf = robot_target_tf * target_tf;
+            // todo: this needs to include the base_link, probably the collection of dependent limbs as well
             kinematics.moveBase(*target, target_tf);
         }
     }
-
 
 
     //
@@ -787,16 +799,20 @@ bool Control::update_target(const State& current, rclcpp::Time _now)
         if(current.findTF(l_name, current_limb_tf)) {
             // make limb_tf relative to robot body
             current_limb_tf = robot_current_tf.Inverse() * current_limb_tf;
+
+            // compute limb effector velocity
             if(seconds_since_last_update < 10.0) {
                 KDL::Vector delta_p = diff(current_limb_tf.p, limb.position.p, seconds_since_last_update);
                 KDL::Vector delta_r = diff(current_limb_tf.M, limb.position.M, seconds_since_last_update);
                 limb.velocity.vel = delta_p;
                 limb.velocity.rot = delta_r;
             }
+
+            // set limb current position
             limb.position = current_limb_tf;
         }
 
-        if(limb.mode == Effector::Limp) {
+        if(limb.status == Effector::Status::Limp) {
             // this limb is not under control,
             // we will not do any Inverse Kinematics and
             // simply copy state from current
@@ -820,15 +836,15 @@ bool Control::update_target(const State& current, rclcpp::Time _now)
             }
 #endif
             kinematics.invalidate(l_name, LimbKinematics::JOINTS);
-        } else if(limb.mode == Effector::Holding) {
-            // We want to maintain position so we should not copy from current,
-            // nor perform any inverse kinematics as joint info should not change
-            // tldr; do nothing
-            joint_control_publisher->set_joint_effort(limb.model->joint_names, 2.0);
-        } else if(limb.mode >= Effector::Seeking) {
+        } else if(limb.status == Effector::Status::Seeking || limb.status == Effector::Status::Supporting) {
             // perform inverse kinematics based on Limb targets
             auto target_tf = robot_target_tf * limb.target;
             kinematics.moveEffector(*target, l_name, target_tf);
+            joint_control_publisher->set_joint_effort(limb.model->joint_names, 2.0);
+        } else if (limb.status == Effector::Status::Holding) {
+            // We want to maintain position so we should not copy from current,
+            // nor perform any inverse kinematics as joint info should not change
+            // tldr; do nothing
             joint_control_publisher->set_joint_effort(limb.model->joint_names, 2.0);
         }
     }
@@ -891,13 +907,37 @@ trajectory::Expression Control::expression_from_msg(
     vector_to_kdl_vector(seg.points, tf.points);
     quat_to_kdl_rotation(seg.rotations, tf.rotations);
 
+    if(!seg.coordinate_mask.empty())
+        tf.coordinate_mask = coordinate_mask_from_string(seg.coordinate_mask);
+    else {
+        if(!tf.rotations.empty())
+            tf.coordinate_mask |= CoordinateMask::RPY;
+        if(!tf.points.empty())
+            tf.coordinate_mask |= CoordinateMask::XYZ;
+    }
+#if 0
+    if(!tf.points.empty()) {
+        CoordinateMask m;
+        KDL::Vector p0 = tf.points[0];
+        for(auto& p : tf.points) {
+            if(p0.x() != p.x())
+                m |= CoordinateMask::X;
+            if(p0.y() != p.y())
+                m |= CoordinateMask::Y;
+            if(p0.z() != p.z())
+                m |= CoordinateMask::Z;
+        }
+        tf.coordinate_mask |= m;
+    }
+#endif
+
+    tf.mode_in = effector_mode_from_msg(seg.mode_in);
+    tf.mode_out = effector_mode_from_msg(seg.mode_out);
+
     // calculate velocity/acceleration
     // todo: figure out what the max joint vel/acc is
     tf.velocity = std::min(seg.velocity, 10.0);
     tf.acceleration = std::min(seg.acceleration, 4.0);
-
-    // true if this trajectory is expected to support the robot
-    tf.supporting = seg.supporting;
 
     // create motion profile
     // todo: if we use the same arg parser as path then vel/acc could be encoded here
@@ -941,10 +981,10 @@ void Control::reset_callback(const std::shared_ptr<robot_model_msgs::srv::Reset:
     if(request->limp) {
         // set all limbs to limp
         for(auto& b: bases_) {
-            b.mode = robotik::Limb::Limp;
+            b.limp();
         }
         for(auto& l: limbs_) {
-            l.mode = robotik::Limb::Limp;
+            l.limp();
         }
     }
     if(request->target_state)
@@ -995,15 +1035,13 @@ void Control::set_limb_callback(const std::shared_ptr<robot_model_msgs::srv::Set
     }
 
     bool has_mode = request->limbs.size() == request->mode.size();
-    bool has_supportive = request->limbs.size() == request->supportive.size();
     bool has_compliance = request->limbs.size() == request->compliance.size();
 
     for(int i=0, _i = request->limbs.size(); i < _i; i++) {
         auto& limb = limbs_[request->limbs[i]];
-        if(has_mode)
-            limb.mode = (robotik::Limb::Mode)request->mode[i];
-        if(has_supportive)
-            limb.supportive = request->supportive[i];
+        auto mode = request->mode[i];
+        if(has_mode && mode != robot_model_msgs::srv::SetLimb::Request::NO_CHANGE)
+            limb.mode = effector_mode_from_msg(mode);
         if(has_compliance)
             limb.compliance = request->compliance[i];
     }

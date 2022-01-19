@@ -58,7 +58,6 @@ bool CoordinatedTrajectoryAction::render(RenderingInterface& env)
     for(auto& m: members) {
         auto& limb = limbs_[m.expression.segment];
         m.segment.render(m.expression, limb.position, env);
-        limb.supporting = m.expression.supporting;
     }
     state = Rendered;
     auto tr = time_range();
@@ -81,8 +80,10 @@ void CoordinatedTrajectoryAction::apply(const rclcpp::Time& now)
         auto& limb = limbs_[m.expression.segment];
         double l_ts = ts - m.ts;        // convert time to beginning of rendered segment trajectory
         if(l_ts > 0) {
-            limb.target = m.segment.Pos(l_ts);
-            limb.mode = Limb::Seeking;
+            limb.apply(m.segment.Pos(l_ts), m.expression.coordinate_mask);
+            if(m.expression.mode_in != Limb::Unassigned)
+                limb.mode = m.expression.mode_in;
+            limb.status = Limb::Status::Seeking;
             //std::cout << "    applied coordinated " << id() << ":" << limb.model->to_link + "   pos: " << l_ts << std::endl;
         }
     }
@@ -108,7 +109,9 @@ CoordinatedTrajectoryAction::get_result(const rclcpp::Time&, ResultCode code)
     auto result = std::make_shared<EffectorTrajectory::Result>();
     for(auto& m: members) {
         auto& limb = limbs_[m.expression.segment];
-        limb.mode = Limb::Holding;
+        if(m.expression.mode_out != Limb::Unassigned)
+            limb.mode = m.expression.mode_out;
+        limb.status = Limb::Status::Holding;
         // todo: add current position, velocity or error?
         //result->result.position = tf2::kdlToTransform(limb.target).transform;
         //result->result.velocity = tf2::kdlToTransform(limb.target).transform;

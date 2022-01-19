@@ -21,6 +21,8 @@ LinearTrajectoryAction::LinearTrajectoryAction(
     id_ = goal->id;
     linear_acceleration_ = goal->linear_acceleration;
     angular_acceleration_ = goal->angular_acceleration;
+    mode_in = effector_mode_from_msg(goal->mode_in);
+    mode_out = effector_mode_from_msg(goal->mode_out);
     last_apply_ = ts_ = rclcpp::Time(goal->header.stamp).seconds();
 
     if(ts_ == 0.0)
@@ -43,7 +45,6 @@ LinearTrajectoryAction::LinearTrajectoryAction(
                 m.is_limb = true;
                 m.effector = &*limb_itr;
                 current_vel = limb_itr->velocity;
-                limb_itr->supporting = goal->supporting;
             } else if(bases_.end() != (base_itr = bases_.find(*e))) {
                 m.is_limb = false;
                 m.effector = &*base_itr;
@@ -127,21 +128,24 @@ void LinearTrajectoryAction::apply(const rclcpp::Time& now)
             auto cur_target_twist = KDL::Twist(cur_target_vel, cur_target_rot);
 
             // integrate velocity into current position and orientation
-            m.second.effector->mode = Limb::Seeking;
+            if(mode_in != Effector::Mode::Unassigned)
+                m.second.effector->mode = mode_in;
+            m.second.effector->status = Limb::Status::Seeking;
             m.second.effector->target = addDelta(m.second.effector->target, cur_target_twist, dt);
-
+            //m.second.effector->apply(
+            //        addDelta(m.second.effector->target, cur_target_twist, dt),
+            //        m.expression.coordinate_mask);
             // if we are manipulating a base, then apply inverse twist to supporting limbs
             if(!m.second.is_limb) {
                 // apply inverse twist to limbs
                 for(auto& l : limbs_) {
-                    if(l.model->base->link == m.first && l.supporting) {
+                    if(l.model->base->link == m.first && l.is_supporting()) {
                         l.apply_base_twist(cur_target_twist, dt);
-                        if(l.mode == Effector::Holding)
-                            l.mode = Effector::Supporting;
+                        if(l.status == Effector::Status::Holding)
+                            l.status = Effector::Status::Supporting;
                     }
                 }
             }
-
         }
     }
     last_apply_ = now_ts;
@@ -155,7 +159,9 @@ LinearTrajectoryAction::get_result(const rclcpp::Time&, ResultCode code)
     // signal complete
     auto result = std::make_shared<EffectorTrajectory::Result>();
     for(auto& m: members) {
-        m.second.effector->mode = Limb::Holding;
+        if(mode_out != Effector::Mode::Unassigned)
+            m.second.effector->mode = mode_out;
+        m.second.effector->status = Limb::Status::Holding;
         result->result.effectors.emplace_back(m.first);
         result->result.transforms.emplace_back(
                 tf2::kdlToTransform(get_target_transform(m)).transform);
@@ -164,8 +170,8 @@ LinearTrajectoryAction::get_result(const rclcpp::Time&, ResultCode code)
         if(!m.second.is_limb) {
             // apply inverse twist to limbs
             for(auto& l : limbs_) {
-                if(l.model->base->link == m.first && l.mode == Effector::Supporting) {
-                    l.mode = Effector::Holding;
+                if(l.model->base->link == m.first && l.status == Effector::Status::Supporting) {
+                    l.status = Effector::Status::Holding;
                 }
             }
         }
