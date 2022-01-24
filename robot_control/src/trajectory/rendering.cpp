@@ -12,7 +12,9 @@
 #include <kdl/path_circle.hpp>
 #include <kdl/path_composite.hpp>
 #include <kdl/path_cyclic_closed.hpp>
-#include <kdl/path_roundedcomposite.hpp>
+
+// a copy-and-modified version of the rounded-composite path in the KDL project
+#include <robot_control/trajectory/path-rounded-composite.h>
 
 #include <kdl/velocityprofile_trap.hpp>
 #include <kdl/velocityprofile_traphalf.hpp>
@@ -132,12 +134,12 @@ void RenderedSegment::truncate(double time)
 
 template<class RItr>
 KDL::Path* toRoundedPath(RItr begin, RItr end, double rradius) {
-    auto path = new KDL::Path_RoundedComposite(rradius, 0.00001, new KDL::RotationalInterpolation_SingleAxis());
+    auto path = new KDL::Path_RoundedComposite2(rradius, 0.00001, new KDL::RotationalInterpolation_SingleAxis());
     while(begin != end) {
         try {
             path->Add(*begin);
         } catch(const KDL::Error_MotionPlanning_Not_Feasible& ex) {
-            std::cout << "KDL motion not feasible: reason " << ex.GetType() << ": " << ex.Description() << std::endl;
+            std::cout << "KDL motion not feasible: reason " << ex.GetType() << std::endl;
         }
         begin++;
     }
