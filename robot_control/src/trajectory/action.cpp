@@ -89,5 +89,28 @@ TrajectoryActionInterface::CancelResponse TrajectoryActions::cancel(const rclcpp
     return rclcpp_action::CancelResponse::REJECT;
 }
 
+TrajectoryActionInterface::CancelResponse TrajectoryActions::cancel(const std::string& action_id,
+                                                                    const rclcpp::Time& now,
+                                                                    TrajectoryActionInterface::ResultCode code)
+{
+    if(action_id.empty())
+        return rclcpp_action::CancelResponse::REJECT;
+
+    for(auto a=begin(); a != end(); a++) {
+        if((*a)->id() == action_id) {
+            // found the action, complete it
+            std::cout << "Cancel Action ID: " << action_id << std::endl;
+            auto r = (*a)->cancel(now, code);
+            // remove action
+            if(r == rclcpp_action::CancelResponse::ACCEPT)
+                erase(a);
+            return r;
+        }
+    }
+
+    // can't find the action, reject the request
+    return rclcpp_action::CancelResponse::REJECT;
+}
+
 
 } // ns:robotik

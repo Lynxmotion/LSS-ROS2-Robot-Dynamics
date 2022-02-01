@@ -1112,6 +1112,12 @@ void Control::handle_trajectory_accepted(
 
     auto expr = expression_from_msg(request.segment, model_->odom_link, now);
 
+    // cancel trajectory actions by the same ID
+    actions.cancel(
+            request.id,
+            now,
+            robot_model_msgs::msg::TrajectoryComplete::PREEMPTED);
+
     // cancel any existing actions for this segment
     actions.complete(
             expr.segment,
@@ -1187,6 +1193,13 @@ void Control::handle_coordinated_trajectory_accepted(
         now = lastUpdate;
     }
 
+    // cancel trajectory actions by the same ID
+    actions.cancel(
+            request.id,
+            now,
+            robot_model_msgs::msg::TrajectoryComplete::PREEMPTED);
+
+    // complete any actions on the same segments if it fits the same mask
     std::vector<trajectory::Expression> expressions;
     for(const auto& e: request.segments) {
         // cancel any existing actions for this segment
@@ -1269,6 +1282,13 @@ void Control::handle_linear_trajectory_accepted(
         now = lastUpdate;
     }
 
+    // cancel trajectory actions by the same ID
+    actions.cancel(
+            request->id,
+            now,
+            robot_model_msgs::msg::TrajectoryComplete::PREEMPTED);
+
+    // cancel any existing trajectory for the manipulated segments/effectors
     for(const auto& e: request->effectors) {
         // cancel any existing actions for this segment
         actions.complete(

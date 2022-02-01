@@ -136,6 +136,10 @@ public:
                   const rclcpp::Time& now,
                   TrajectoryActionInterface::ResultCode code = robot_model_msgs::msg::TrajectoryComplete::CANCELLED);
 
+    TrajectoryActionInterface::CancelResponse cancel(const std::string& action_id,
+                  const rclcpp::Time& now,
+                  TrajectoryActionInterface::ResultCode code = robot_model_msgs::msg::TrajectoryComplete::SUCCESS);
+
 };
 
 } //ns:robotik::trajectory
