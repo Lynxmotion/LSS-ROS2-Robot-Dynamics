@@ -126,7 +126,9 @@ CoordinatedTrajectoryAction::get_result(const rclcpp::Time&, ResultCode code)
     return result;
 }
 
-void CoordinatedTrajectoryAction::complete(const rclcpp::Time& time, ResultCode code)
+void CoordinatedTrajectoryAction::complete(
+        const rclcpp::Time& time,
+        ResultCode code)
 {
     if(!goal_handle_)
         return;

@@ -71,7 +71,9 @@ void TrajectoryAction::apply(const rclcpp::Time& now)
     //std::cout << "    applied " << limb.model->to_link << "    pos: " << ts << std::endl;
 }
 
-void TrajectoryAction::complete(const rclcpp::Time&, ResultCode code)
+void TrajectoryAction::complete(
+        const rclcpp::Time&,
+        ResultCode code)
 {
     if(!goal_handle_)
         return;

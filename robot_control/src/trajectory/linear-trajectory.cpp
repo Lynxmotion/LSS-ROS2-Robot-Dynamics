@@ -183,7 +183,9 @@ LinearTrajectoryAction::get_result(const rclcpp::Time&, ResultCode code)
     return result;
 }
 
-void LinearTrajectoryAction::complete(const rclcpp::Time& now, ResultCode code)
+void LinearTrajectoryAction::complete(
+        const rclcpp::Time& now,
+        ResultCode code)
 {
     if(!goal_handle_)
         return;

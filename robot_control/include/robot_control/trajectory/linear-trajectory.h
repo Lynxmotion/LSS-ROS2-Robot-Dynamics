@@ -41,7 +41,7 @@ public:
     /// tell the client this action has completed
     void complete(
             const rclcpp::Time& now,
-            ResultCode code = robot_model_msgs::msg::TrajectoryComplete::SUCCESS) override;
+            ResultCode code) override;
 
     /// tell the client a member of this action is being cancelled
     /// Other members are still being controlled and progress on those members will continue. If there are no other
@@ -51,13 +51,14 @@ public:
     /// returns true if all members have expired and this action has thus been entirely cancelled
     bool complete(
             std::string member_name,
+            const CoordinateMask& mask,
             const rclcpp::Time& now,
-            ResultCode code = robot_model_msgs::msg::TrajectoryComplete::SUCCESS) override;
+            ResultCode code) override;
 
     ///@brief Called to indicate the user requested this action be cancelled
     CancelResponse cancel(
             const rclcpp::Time& now,
-            ResultCode code = robot_model_msgs::msg::TrajectoryComplete::SUCCESS) override;
+            ResultCode code) override;
 
     /// update the client on the progress of the action
     void send_feedback(const rclcpp::Time& now) override;
