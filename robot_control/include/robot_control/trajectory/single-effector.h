@@ -51,6 +51,7 @@ public:
     /// returns true if all members have expired and this action has thus been entirely cancelled
     bool complete(
             std::string member_name,
+            const CoordinateMask& mask,
             const rclcpp::Time& now,
             ResultCode code = robot_model_msgs::msg::TrajectoryComplete::SUCCESS) override;
 

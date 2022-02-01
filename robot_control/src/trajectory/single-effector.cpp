@@ -113,13 +113,16 @@ void TrajectoryAction::complete(const rclcpp::Time&, ResultCode code)
     goal_handle_.reset();
     feedback_.reset();
 
-    std::cout << "    completed " << limb_.model->link << "    code: " << code << std::endl;
+    std::cout << "    completed " << id() << " on " << limb_.model->link << "    " << std::endl;
 }
 
-bool TrajectoryAction::complete(std::string member_name, const rclcpp::Time& now, ResultCode code)
+bool TrajectoryAction::complete(
+        std::string member_name,
+        const CoordinateMask& mask,
+        const rclcpp::Time& now, ResultCode code)
 {
     // ignore if it isnt the member we are controlling
-    if(member_name != member.expression.segment)
+    if(member_name != member.expression.segment || (mask & member.expression.coordinate_mask) == CoordinateMask::None)
         return false;
 
     // we only have one member, so cancel the entire action

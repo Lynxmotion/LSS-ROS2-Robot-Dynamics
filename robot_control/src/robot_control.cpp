@@ -1115,6 +1115,7 @@ void Control::handle_trajectory_accepted(
     // cancel any existing actions for this segment
     actions.complete(
             expr.segment,
+            expr.coordinate_mask,
             now,
             robot_model_msgs::msg::TrajectoryComplete::PREEMPTED);
 
@@ -1189,8 +1190,10 @@ void Control::handle_coordinated_trajectory_accepted(
     std::vector<trajectory::Expression> expressions;
     for(const auto& e: request.segments) {
         // cancel any existing actions for this segment
+        auto mask = coordinate_mask_from_string(e.coordinate_mask);
         actions.complete(
                 e.segment,
+                mask,
                 now,
                 robot_model_msgs::msg::TrajectoryComplete::PREEMPTED);
 

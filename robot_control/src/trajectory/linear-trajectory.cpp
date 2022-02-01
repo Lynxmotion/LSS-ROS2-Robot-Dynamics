@@ -206,11 +206,15 @@ void LinearTrajectoryAction::complete(const rclcpp::Time& now, ResultCode code)
     //std::cout << "    completed coordinated " << id() << "    code: " << code << std::endl;
 }
 
-bool LinearTrajectoryAction::complete(std::string member_name, const rclcpp::Time& now, ResultCode code)
+bool LinearTrajectoryAction::complete(
+        std::string member_name,
+        const CoordinateMask& mask,
+        const rclcpp::Time& now,
+        ResultCode code)
 {
-    // todo: remove specific effectors
+    // remove specific effectors
     auto itr = members.find(member_name);
-    if(itr != members.end()) {
+    if(itr != members.end() && mask != CoordinateMask::None) {
         members.erase(itr);
         if(members.empty())
             complete(now, code);

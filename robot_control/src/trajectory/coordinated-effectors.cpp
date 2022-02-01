@@ -147,16 +147,24 @@ void CoordinatedTrajectoryAction::complete(const rclcpp::Time& time, ResultCode 
     //std::cout << "    completed coordinated " << id() << "    code: " << code << std::endl;
 }
 
-bool CoordinatedTrajectoryAction::complete(std::string member_name, const rclcpp::Time& now, ResultCode code)
+bool CoordinatedTrajectoryAction::complete(
+        std::string member_name,
+        const CoordinateMask& mask,
+        const rclcpp::Time& now,
+        ResultCode code)
 {
-    if(members.size() == 1 && members.front().expression.segment == member_name) {
-        // only 1 member and we are completing it
-        complete(now, code);
-        return true;
+    if(members.size() == 1) {
+        const auto& expr = members.front().expression;
+        if(expr.segment == member_name && (mask & expr.coordinate_mask) != CoordinateMask::None) {
+            // only 1 member and we are completing it
+            complete(now, code);
+            return true;
+        }
     }
 
     for(auto m = members.begin(), _m = members.end(); m != _m; m++) {
-        if(member_name == m->expression.segment) {
+        const auto& expr = m->expression;
+        if(member_name == expr.segment && (mask & expr.coordinate_mask) != CoordinateMask::None) {
             // cancel only this member
             members.erase(m);
             return true;

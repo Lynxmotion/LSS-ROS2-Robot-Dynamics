@@ -53,12 +53,13 @@ bool TrajectoryActions::complete(const rclcpp_action::GoalUUID uuid,
 }
 
 bool TrajectoryActions::complete(std::string member_name,
+                                 const CoordinateMask& mask,
                                  const rclcpp::Time& now,
                                  TrajectoryActionInterface::ResultCode code)
 {
     int removals = 0;
     for(auto a=begin(); a != end(); ) {
-        if((*a)->complete(member_name, now, code)) {
+        if((*a)->complete(member_name, mask, now, code)) {
             // remove action
             erase(a);
             removals++;
@@ -69,7 +70,7 @@ bool TrajectoryActions::complete(std::string member_name,
     return removals > 0;
 }
 
-TrajectoryActionInterface::CancelResponse TrajectoryActions::cancel(const rclcpp_action::GoalUUID uuid,
+TrajectoryActionInterface::CancelResponse TrajectoryActions::cancel(const rclcpp_action::GoalUUID& uuid,
                                  const rclcpp::Time& now,
                                  TrajectoryActionInterface::ResultCode code)
 {

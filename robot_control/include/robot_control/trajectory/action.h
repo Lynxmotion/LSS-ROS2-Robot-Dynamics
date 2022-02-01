@@ -60,8 +60,16 @@ public:
     /// returns true if all members have expired and this action has thus been entirely cancelled
     virtual bool complete(
             std::string member_name,
+            const CoordinateMask& mask,
             const rclcpp::Time& now,
             ResultCode code = robot_model_msgs::msg::TrajectoryComplete::SUCCESS)=0;
+
+    inline bool complete(
+            std::string member_name,
+            const rclcpp::Time& now,
+            ResultCode code = robot_model_msgs::msg::TrajectoryComplete::SUCCESS) {
+        return complete(member_name, CoordinateMask::All, now, code);
+    }
 
     ///@brief Called to indicate the user requested this action be cancelled
     virtual CancelResponse cancel(
@@ -112,11 +120,19 @@ public:
                   const rclcpp::Time& now,
                   TrajectoryActionInterface::ResultCode code = robot_model_msgs::msg::TrajectoryComplete::SUCCESS);
 
+    inline bool complete(std::string member_name,
+                  const rclcpp::Time& now,
+                  TrajectoryActionInterface::ResultCode code = robot_model_msgs::msg::TrajectoryComplete::SUCCESS) {
+        return complete(member_name, CoordinateMask::All, now, code);
+    }
+
+
     bool complete(std::string member_name,
+                  const CoordinateMask& mask,
                   const rclcpp::Time& now,
                   TrajectoryActionInterface::ResultCode code = robot_model_msgs::msg::TrajectoryComplete::SUCCESS);
 
-    TrajectoryActionInterface::CancelResponse cancel(const rclcpp_action::GoalUUID uuid,
+    TrajectoryActionInterface::CancelResponse cancel(const rclcpp_action::GoalUUID& uuid,
                   const rclcpp::Time& now,
                   TrajectoryActionInterface::ResultCode code = robot_model_msgs::msg::TrajectoryComplete::CANCELLED);
 
