@@ -71,6 +71,7 @@ bool Limb::on_activate() {
 bool Limb::on_deactivate() {
     chain.reset();
     joint_names.clear();
+    segment_names.clear();
     return true;
 }
 
