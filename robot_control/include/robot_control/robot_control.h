@@ -28,6 +28,7 @@
 #include <kinematics.h>
 #include <listeners/JointStateListener.h>
 #include <listeners/ModelStateListener.h>
+#include <listeners/RobotDescriptionListener.h>
 #include <publishers/JointControlPublisher.h>
 #include <robot_control/trajectory/single-effector.h>
 #include <robot_control/trajectory/coordinated-effectors.h>
@@ -164,11 +165,12 @@ protected:
             const rclcpp::Time& now,
             rclcpp::Time& last_static_publish);
 
-    rclcpp::Subscription<std_msgs::msg::String>::SharedPtr subscription_robot_description_;
-    void robot_description_callback(std_msgs::msg::String::SharedPtr msg);
-
     robotik::JointStateListener::SharedPtr joint_state_listener;
     robotik::ModelStateListener::SharedPtr model_state_listener;
+    robotik::RobotDescriptionListener::SharedPtr robot_description_listener;
+
+    void robot_model_callback(robotik::Model::SharedPtr model);
+
     //robotik::SegmentStateListener::SharedPtr segment_state_listener;  <-- incomplete implementation
     robotik::JointControlPublisher::SharedPtr joint_control_publisher;
 

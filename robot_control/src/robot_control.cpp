@@ -74,57 +74,43 @@ Control::Control(
         change_state_future_ = change_state_client_->async_send_request(change_state_request_);
     }
 
-    model_ = std::make_shared<robotik::Model>();
-
     // intercept parameter changes
     old_parameter_set_callback = add_on_set_parameters_callback(std::bind(&Control::parameter_set_callback, this, std::placeholders::_1));
 }
 
-void Control::robot_description_callback(std_msgs::msg::String::SharedPtr msg)
+void Control::robot_model_callback(robotik::Model::SharedPtr model)
 {
-#if 0
-  std::string urdf_base_path = "/home/guru/src/lss-humanoid/ros2/humanoid/src/lss_humanoid/urdf/";
-  model_->setupURDF(
-      msg->data,
-      urdf_base_path + "lss_humanoid.srdf"
-  );
-#else
-  std::string urdf_base_path = "/home/guru/src/lss-ros2/lss/lss_hexapod/urdf/";
-  model_->setupURDF(
-          msg->data,
-          urdf_base_path + "lss_hexapod.srdf"
-          );
-#endif
+    model_ = model;
 
-  ///
-  /// configure dynamics for new model
-  ///
-  current = std::make_shared<robotik::State>(*model_);
+    ///
+    /// configure dynamics for new model
+    ///
+    current = std::make_shared<robotik::State>(*model_);
 
-  // start listening for joint state updates
-  if(!joint_state_listener)
+    // start listening for joint state updates
+    if(!joint_state_listener)
     joint_state_listener = std::make_shared<robotik::JointStateListener>(
             *this,
             get_parameter(JOINT_STATE_TOPIC_PARAMETER).get_value<std::string>());
-  joint_state_listener->state(current);
+    joint_state_listener->state(current);
 
-  if(!model_state_listener)
+    if(!model_state_listener)
       model_state_listener = std::make_shared<robotik::ModelStateListener>(
               *this,
               get_parameter(MODEL_STATE_TOPIC_PARAMETER).get_value<std::string>(),
               "odom");
-  model_state_listener->model(model_);
-  model_state_listener->state(current);
+    model_state_listener->model(model_);
+    model_state_listener->state(current);
 
-  // todo: is there a way we can exctract this from the URDF or SRDF?
-  joint_control_publisher->set_joints(get_parameter("joint_names").get_value<std::vector<std::string>>());
+    // todo: is there a way we can exctract this from the URDF or SRDF?
+    joint_control_publisher->set_joints(get_parameter("joint_names").get_value<std::vector<std::string>>());
 
-  // we can activate now if we havent already
-  if (get_parameter("self_manage").get_value<bool>()) {
+    // we can activate now if we havent already
+    if (get_parameter("self_manage").get_value<bool>()) {
     RCLCPP_INFO(get_logger(), "Self-transitioning to ACTIVE");
     change_state_request_->transition.id = lifecycle_msgs::msg::Transition::TRANSITION_ACTIVATE;
     change_state_future_ = change_state_client_->async_send_request(change_state_request_);
-  }
+    }
 }
 
 rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn
@@ -133,6 +119,10 @@ Control::on_configure(const rclcpp_lifecycle::State &)
     RCLCPP_INFO(get_logger(), "configuring robot control");
 
 #if 1
+    robot_description_listener = std::make_shared<robotik::RobotDescriptionListener>(
+            *this,
+            std::bind(&Control::robot_model_callback, this, std::placeholders::_1));
+#elif 0
     // load URDF from parameter server
     subscription_robot_description_ = this->create_subscription<std_msgs::msg::String>(
         "robot_description",
@@ -263,11 +253,15 @@ Control::on_configure(const rclcpp_lifecycle::State &)
 rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn
 Control::on_cleanup(const rclcpp_lifecycle::State &)
 {
+    RCLCPP_INFO(get_logger(), "cleaning up robot control");
+
     // free our channels
     update_timer_.reset();
     diag_timer_.reset();
 
     model_->clear();
+
+    robot_description_listener.reset();
 
     joint_control_publisher.reset();
 
@@ -291,6 +285,8 @@ Control::on_shutdown(const rclcpp_lifecycle::State &)
     update_timer_.reset();
     diag_timer_.reset();
 
+    robot_description_listener.reset();
+
     model_->clear();
 
     joint_control_publisher.reset();
@@ -310,6 +306,11 @@ Control::on_shutdown(const rclcpp_lifecycle::State &)
 rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn
 Control::on_activate(const rclcpp_lifecycle::State &)
 {
+    if(!model_) {
+        RCLCPP_INFO(get_logger(), "cannot activate robot control until URDF and SRDF have been received");
+        return CallbackReturn::ERROR;
+    }
+
     RCLCPP_INFO(get_logger(), "activating robot control");
     CallbackReturn rv = CallbackReturn::SUCCESS;
 
@@ -551,7 +552,7 @@ void Control::control_update() try {
 }
 
 void Control::publish_progress() try {
-    if(!target)
+    if(!target || !model_)
         return;
 
     rclcpp::Time _now = now();
