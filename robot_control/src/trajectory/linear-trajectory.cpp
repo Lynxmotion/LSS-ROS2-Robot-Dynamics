@@ -49,6 +49,7 @@ LinearTrajectoryAction::LinearTrajectoryAction(
                 m.is_limb = false;
                 m.effector = &*base_itr;
                 //current_vel = base_itr->velocity;
+                current_vel.vel = base_itr->velocity.vel;   // todo: applying only linear velocity for now
             }
 
             // compute out the acceleration vector

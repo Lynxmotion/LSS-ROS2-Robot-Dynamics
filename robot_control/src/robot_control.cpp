@@ -548,7 +548,6 @@ void Control::publish_diagnostics() try {
 
 } catch (std::exception & e) {
     RCLCPP_ERROR(get_logger(), "Failed to poll and publish data: %s", e.what());
-    deactivate();
 }
 
 
