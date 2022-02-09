@@ -2,8 +2,8 @@
 // Created by guru on 1/17/22.
 //
 
-#ifndef ROBOT_DYNAMICS_URDFMODELLISTENER_H
-#define ROBOT_DYNAMICS_URDFMODELLISTENER_H
+#ifndef ROBOT_DYNAMICS_ROBOTDESCRIPTIONLISTENER_H
+#define ROBOT_DYNAMICS_ROBOTDESCRIPTIONLISTENER_H
 
 
 #include <rclcpp/node.hpp>
@@ -15,19 +15,19 @@
 
 namespace robotik {
 
-class URDFModelListener {
+class RobotDescriptionListener {
 public:
-    using SharedPtr = std::shared_ptr<URDFModelListener>;
+    using SharedPtr = std::shared_ptr<RobotDescriptionListener>;
     using CallbackType = void(Model::SharedPtr);
 
     static const std::string default_topic_name;
 
-    explicit URDFModelListener(
+    explicit RobotDescriptionListener(
             rclcpp_lifecycle::LifecycleNode& node,
             std::function<CallbackType>&& callback,
             std::string topic_name = default_topic_name);
 
-    explicit URDFModelListener(
+    explicit RobotDescriptionListener(
             rclcpp::Node& node,
             std::function<CallbackType>&& callback,
             std::string topic_name = default_topic_name);
@@ -47,4 +47,4 @@ protected:
 
 } // ns:robotik
 
-#endif //ROBOT_DYNAMICS_URDFMODELLISTENER_H
+#endif //ROBOT_DYNAMICS_ROBOTDESCRIPTIONLISTENER_H

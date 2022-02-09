@@ -7,7 +7,7 @@ set(INCLUDE_FILES
         kinematics.h
         listeners/JointStateListener.h
         listeners/ModelStateListener.h
-        listeners/URDFModelListener.h
+        listeners/RobotDescriptionListener.h
         listeners/SegmentStateListener.h
         publishers/LifecycleManager.h
         publishers/JointControlPublisher.h)
@@ -18,7 +18,7 @@ set(SOURCE_FILES
         kinematics.cpp
         listeners/JointStateListener.cpp
         listeners/ModelStateListener.cpp
-        listeners/URDFModelListener.cpp
+        listeners/RobotDescriptionListener.cpp
         listeners/SegmentStateListener.cpp
         publishers/LifecycleManager.cpp
         publishers/JointControlPublisher.cpp)
