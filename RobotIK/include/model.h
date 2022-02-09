@@ -49,6 +49,8 @@ namespace robotik {
 
         Model();
 
+        virtual ~Model();
+
         void clear();
 
         // todo: rename this _configure()
