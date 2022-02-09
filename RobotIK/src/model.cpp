@@ -21,10 +21,26 @@ namespace robotik {
 
 const std::string world_link = "world";
 
+
+bool findStringIC(const std::string & strHaystack, const std::string & strNeedle)
+{
+    auto it = std::search(
+            strHaystack.begin(), strHaystack.end(),
+            strNeedle.begin(),   strNeedle.end(),
+            [](char ch1, char ch2) { return std::toupper(ch1) == std::toupper(ch2); }
+            );
+    return (it != strHaystack.end() );
+}
+
 Model::Model()
     : odom_link("odom"), footprint_link("base_footprint"), base_link("base_link"), imu_link("imu_link"),
       gravity(0, 0, -9.81), use_internal_localization(true), use_contact_localizer(true), use_tf_static_(true)
 {
+}
+
+Model::~Model()
+{
+    clear();
 }
 
 void Model::clear() {
@@ -32,10 +48,10 @@ void Model::clear() {
     tree_.reset();
 }
 
-void Model::setupURDF(std::string urdf_filename, std::string srdf_filename) {
+void Model::setupURDF(std::string urdf_filename_or_text) {
     std::string urdf_xml;
 
-    if(urdf_filename.empty()) {
+    if(urdf_filename_or_text.empty()) {
       tree_.reset();
       urdf_model_.reset();
       // todo: clear other fields?
@@ -45,13 +61,13 @@ void Model::setupURDF(std::string urdf_filename, std::string srdf_filename) {
     // load the URDF and build chains
     tree_ = std::make_shared<KDL::Tree>();
 
-    if(urdf_filename[0] == '<') {
+    if(urdf_filename_or_text[0] == '<') {
         // expecting XML string
-        kdl_parser::treeFromString(urdf_filename, *tree_);
-        urdf_model_ = urdf::parseURDF(urdf_filename);
+        kdl_parser::treeFromString(urdf_filename_or_text, *tree_);
+        urdf_model_ = urdf::parseURDF(urdf_filename_or_text);
     } else {
-        kdl_parser::treeFromFile(urdf_filename, *tree_);
-        urdf_model_ = urdf::parseURDFFile(urdf_filename);
+        kdl_parser::treeFromFile(urdf_filename_or_text, *tree_);
+        urdf_model_ = urdf::parseURDFFile(urdf_filename_or_text);
     }
 
     // split the segments into fixed (tf_static) and non-fixed (tf) segments
@@ -63,11 +79,6 @@ void Model::setupURDF(std::string urdf_filename, std::string srdf_filename) {
     //std::cout << "number of joints: " << tree_->getNrOfJoints() << std::endl;
     //std::cout << "number of segments: " << tree_->getNrOfSegments() << std::endl;
 
-    srdf_model_ = std::make_shared<srdf::Model>();
-    if(!srdf_model_->initFile(*urdf_model_, srdf_filename)) {
-        throw std::runtime_error("Unable to load semantic robot description (SRDF)");
-    }
-
     // get the list of joints (in KDL tree order)
     joints_.resize(tree_->getNrOfJoints());
     for(auto& seg: tree_->getSegments()) {
@@ -78,17 +89,39 @@ void Model::setupURDF(std::string urdf_filename, std::string srdf_filename) {
             joints_[q_nr] = joint.getName();
         }
     }
+}
 
+void Model::setupSRDF(std::string srdf_filename_or_text)
+{
+    if(srdf_filename_or_text.empty()) {
+        limbs.clear();
+    }
+
+    srdf_model_ = std::make_shared<srdf::Model>();
+    if(srdf_filename_or_text[0] == '<') {
+        // expecting XML string
+        if(!srdf_model_->initString(*urdf_model_, srdf_filename_or_text)) {
+            throw std::runtime_error("Unable to load semantic robot description (SRDF)");
+        }
+    } else {
+        if(!srdf_model_->initFile(*urdf_model_, srdf_filename_or_text)) {
+            throw std::runtime_error("Unable to load semantic robot description (SRDF)");
+        }
+    }
+
+    bases.clear();
+    limbs.clear();
+
+    // todo: many Limb::Options are no longer needed: ex. tree, gravity
+    #if 0
     auto base = std::make_shared<BaseEffector>(tree_, base_link);
     bases.emplace_back(base);
 
-    // todo: many Limb::Options are no longer needed: ex. tree, gravity
-#if 0
-limbs.emplace_back(std::make_shared<Limb>(base, "r_sole", Limb::DynamicModelType::Leg));
-limbs.emplace_back(std::make_shared<Limb>(base, "l_sole", Limb::DynamicModelType::Leg));
+    limbs.emplace_back(std::make_shared<Limb>(base, "r_sole", Limb::DynamicModelType::Leg));
+    limbs.emplace_back(std::make_shared<Limb>(base, "l_sole", Limb::DynamicModelType::Leg));
 
-limbs.emplace_back(std::make_shared<Limb>(base, "RHand", Limb::DynamicModelType::Arm));
-limbs.emplace_back(std::make_shared<Limb>(base, "LHand", Limb::DynamicModelType::Arm));
+    limbs.emplace_back(std::make_shared<Limb>(base, "RHand", Limb::DynamicModelType::Arm));
+    limbs.emplace_back(std::make_shared<Limb>(base, "LHand", Limb::DynamicModelType::Arm));
 
     // todo: determine transform from base to IMU
     urdf_base_imu_tf = KDL::Frame(
@@ -96,7 +129,10 @@ limbs.emplace_back(std::make_shared<Limb>(base, "LHand", Limb::DynamicModelType:
             KDL::Vector(-0.06, 0, 0.078)
             );
 
-#else
+    #elif 0
+    auto base = std::make_shared<BaseEffector>(tree_, base_link);
+    bases.emplace_back(base);
+
     // Hexapod config
     limbs.emplace_back(std::make_shared<Limb>(base, "left-back-foot", Limb::DynamicModelType::Leg));
     limbs.emplace_back(std::make_shared<Limb>(base, "left-front-foot", Limb::DynamicModelType::Leg));
@@ -110,7 +146,68 @@ limbs.emplace_back(std::make_shared<Limb>(base, "LHand", Limb::DynamicModelType:
             KDL::Rotation::RPY(0, 0, 0),
             KDL::Vector(0, 0.04, 0.005)
             );
-#endif
+    #else
+    auto& groups = srdf_model_->getGroups();
+
+    // determine limbs from SRDF
+    for(auto& effector: srdf_model_->getEndEffectors()) {
+        // find the parent group
+        auto itr = std::find_if(groups.begin(), groups.end(), [&effector](const srdf::Model::Group& g) {
+            return g.name_ == effector.component_group_;
+        });
+        if (itr == groups.end()) {
+            RCLCPP_WARN_STREAM(get_logger(), "cannot find parent group " << effector.component_group_ << " for effector " << effector.name_);
+            continue;
+        }
+
+        // get the chain from the parent group
+        if(itr->chains_.size() != 1) {
+            RCLCPP_WARN_STREAM(get_logger(),
+                   "only effector parent groups with one and only one chain are supported,  " << effector.parent_group_
+                   << " has " << itr->chains_.size() << " chains.");
+            continue;
+        }
+
+        auto chain = itr->chains_[0];
+
+        // find or create the base for this limb
+        auto base_itr = std::find_if(bases.begin(), bases.end(), [&chain](const BaseEffector::SharedPtr & b) {
+            return b->link == chain.first;
+        });
+        if(base_itr == bases.end()) {
+            bases.emplace_back(std::make_shared<BaseEffector>(tree_, chain.first));
+            base_itr = bases.end() - 1;
+            RCLCPP_INFO_STREAM(get_logger(), "created effector base link " << chain.first);
+        }
+
+        // for now lets use this rudimentary method of determining limb type
+        Limb::DynamicModelType limbType = Limb::DynamicModelType::Generic;
+        if(findStringIC(effector.component_group_, "leg"))
+            limbType = Limb::DynamicModelType::Leg;
+        else if(findStringIC(effector.component_group_, "arm"))
+            limbType = Limb::DynamicModelType::Arm;
+
+        // add the limb
+        auto limb = std::make_shared<Limb>(
+                *base_itr,
+                chain.second,
+                limbType);
+        limb->name = effector.name_;
+        // todo: set limb->origin using URDF and parent_link
+        limbs.emplace_back(limb);
+
+        std::string effector_type;
+        switch(limb->model) {
+            case Limb::DynamicModelType::Generic: effector_type = "effector"; break;
+            case Limb::DynamicModelType::Arm: effector_type = "arm"; break;
+            case Limb::DynamicModelType::Leg: effector_type = "leg"; break;
+        }
+
+        RCLCPP_INFO_STREAM(get_logger(),
+                           "found " << effector_type << " " << limb->name
+                           << " from " << limb->base->link << " -> " << limb->link);
+    }
+    #endif
 
     // load support polys for the limbs
     for(auto& limb: limbs) {
@@ -118,7 +215,7 @@ limbs.emplace_back(std::make_shared<Limb>(base, "LHand", Limb::DynamicModelType:
             limb->loadSupportPolygon(urdf_model_);
         } catch(const Exception& ex) {
             // allow the limb to remain but we will be missing object detection
-            std::cout << ex.what() << std::endl;
+            RCLCPP_ERROR_STREAM(get_logger(), "limb support: " << ex.what());
         }
     }
 }

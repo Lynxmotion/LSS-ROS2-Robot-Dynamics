@@ -52,7 +52,8 @@ namespace robotik {
         void clear();
 
         // todo: rename this _configure()
-        void setupURDF(std::string urdf_filename, std::string srdf_filename);
+        void setupURDF(std::string urdf_filename_or_text);
+        void setupSRDF(std::string srdf);
 
         void on_activate(rclcpp_lifecycle::LifecycleNode& node);
         void on_deactivate();
