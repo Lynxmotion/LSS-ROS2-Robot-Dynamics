@@ -23,6 +23,7 @@
 #include <rclcpp_lifecycle/lifecycle_publisher.hpp>
 
 #include "../RobotIK/include/types.h"
+#include <listeners/RobotDescriptionListener.h>
 
 #include <tf2_ros/buffer.h>
 
@@ -96,8 +97,9 @@ protected:
     // true if the environment is part of simulation
     bool is_simulation;
 
-    rclcpp::Subscription<std_msgs::msg::String>::SharedPtr subscription_robot_description_;
-    void robot_description_callback(std_msgs::msg::String::SharedPtr msg);
+    robotik::RobotDescriptionListener::SharedPtr robot_description_listener;
+
+    void robot_model_callback(robotik::Model::SharedPtr model);
 
     rclcpp::Subscription<sensor_msgs::msg::JointState>::SharedPtr joint_state_subscription_;
     void joint_states_callback(sensor_msgs::msg::JointState::SharedPtr msg);

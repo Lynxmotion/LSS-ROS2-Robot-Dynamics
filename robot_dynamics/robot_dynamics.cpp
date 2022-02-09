@@ -84,22 +84,10 @@ Dynamics::Dynamics(
     old_parameter_set_callback = add_on_set_parameters_callback(std::bind(&Dynamics::parameter_set_callback, this, std::placeholders::_1));
 }
 
-void Dynamics::robot_description_callback(std_msgs::msg::String::SharedPtr msg)
+void Dynamics::robot_model_callback(robotik::Model::SharedPtr model)
 {
-    // todo: SRDF must be loaded via topic!!
-#if 0
-  std::string urdf_base_path = "/home/guru/src/lss-humanoid/ros2/humanoid/src/lss_humanoid/urdf/";
-  model_->setupURDF(
-      msg->data,
-      urdf_base_path + "lss_humanoid.srdf"
-  );
-#else
-  std::string urdf_base_path = "/home/guru/src/lss-ros2/lss/lss_hexapod/urdf/";
-  model_->setupURDF(
-          msg->data,
-          urdf_base_path + "lss_hexapod.srdf"
-          );
-#endif
+    model_ = model;
+
   auto numberOfJoints = model_->tree_->getNrOfJoints();
 
   // resize some messages
@@ -132,30 +120,9 @@ Dynamics::on_configure(const rclcpp_lifecycle::State &)
     //tf_listener = std::make_shared<tf2_ros::TransformListener>(tfBuffer, true);
     //tf_listener = std::make_shared<tf2_ros::TransformListener>(tfBuffer, shared_from_this(), false, 10, 10);
 
-#if 1
-    // load URDF from parameter server
-    subscription_robot_description_ = this->create_subscription<std_msgs::msg::String>(
-        "robot_description",
-        rclcpp::QoS(1).transient_local(),
-        std::bind(&Dynamics::robot_description_callback, this, std::placeholders::_1)
-    );
-#else
-    std::string urdf_base_path = "/home/guru/src/lss-humanoid/ros2/humanoid/src/lss_humanoid/urdf/";
-    model_->setupURDF(
-            urdf_base_path + "lss_humanoid.urdf",
-            urdf_base_path + "lss_humanoid.srdf"
-        );
-    auto numberOfJoints = model_->tree_->getNrOfJoints();
-
-    if(has_parameter(LEG_SUPPORT_DISTANCE_PARAM)) {
-        auto supportDistance = get_parameter(LEG_SUPPORT_DISTANCE_PARAM).as_double();
-        RCLCPP_INFO(get_logger(), LEG_SUPPORT_DISTANCE_PARAM ": overriding URDF value with %4.2f ", supportDistance);
-        for (auto &limb: model_->limbs) {
-            if(limb->model == robotik::Limb::Leg)
-                limb->supportDistance = supportDistance;
-        }
-    }
-#endif
+    robot_description_listener = std::make_shared<robotik::RobotDescriptionListener>(
+            *this,
+            std::bind(&Dynamics::robot_model_callback, this, std::placeholders::_1));
 
     using callback_t = std::function<void(tf2_msgs::msg::TFMessage::SharedPtr)>;
     callback_t cb = std::bind(&Dynamics::tf_callback, this, std::placeholders::_1, false);
@@ -223,6 +190,8 @@ Dynamics::on_cleanup(const rclcpp_lifecycle::State &)
     update_timer_.reset();
     diag_timer_.reset();
 
+    robot_description_listener.reset();
+
     subscription_imu_.reset();
 
     model_->clear();
@@ -248,6 +217,8 @@ Dynamics::on_shutdown(const rclcpp_lifecycle::State &)
     diag_timer_.reset();
     //_joint_state_pub.reset();
 
+    robot_description_listener.reset();
+
     subscription_imu_.reset();
 
     compliance_params_msg_.reset();
@@ -265,6 +236,11 @@ Dynamics::on_shutdown(const rclcpp_lifecycle::State &)
 rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn
 Dynamics::on_activate(const rclcpp_lifecycle::State &)
 {
+    if(!model_) {
+        RCLCPP_INFO(get_logger(), "cannot activate robot control until URDF and SRDF have been received");
+        return CallbackReturn::ERROR;
+    }
+
     RCLCPP_INFO(get_logger(), "activating robot dynamics");
     CallbackReturn rv = CallbackReturn::SUCCESS;
 
@@ -360,6 +336,12 @@ std::map<std::string, double> top_efforts;
 void Dynamics::updateRobotState()
 {
     auto _now = now();
+
+    if(!model_) {
+        // stale joint data
+        RCLCPP_WARN_THROTTLE(get_logger(), *get_clock(), 5000, "waiting for robot description");
+        return;
+    }
 
     try {
         if (model_->updateState(*current.state)) {
