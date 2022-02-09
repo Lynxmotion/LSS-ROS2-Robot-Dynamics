@@ -26,6 +26,7 @@
 #include <limb.h>
 #include <raf.h>
 #include <kinematics.h>
+#include <publishers/LifecycleManager.h>
 #include <listeners/JointStateListener.h>
 #include <listeners/ModelStateListener.h>
 #include <listeners/RobotDescriptionListener.h>
@@ -165,6 +166,8 @@ protected:
             const rclcpp::Time& now,
             rclcpp::Time& last_static_publish);
 
+    robotik::LifecycleManager::SharedPtr self_managed;
+
     robotik::JointStateListener::SharedPtr joint_state_listener;
     robotik::ModelStateListener::SharedPtr model_state_listener;
     robotik::RobotDescriptionListener::SharedPtr robot_description_listener;
@@ -175,10 +178,6 @@ protected:
     robotik::JointControlPublisher::SharedPtr joint_control_publisher;
 
     rclcpp::TimerBase::SharedPtr update_timer_, progress_timer_, preview_timer_, publish_state_timer_, diag_timer_;
-
-    lifecycle_msgs::srv::ChangeState::Request::SharedPtr change_state_request_;
-    rclcpp::Client<lifecycle_msgs::srv::ChangeState>::SharedPtr change_state_client_;
-    rclcpp::Client<lifecycle_msgs::srv::ChangeState>::SharedFuture change_state_future_;
 
     // detect parameters modification during runtime
     rclcpp::node_interfaces::OnSetParametersCallbackHandle::SharedPtr old_parameter_set_callback;

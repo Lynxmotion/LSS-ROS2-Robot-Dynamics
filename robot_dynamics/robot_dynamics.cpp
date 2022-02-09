@@ -51,7 +51,6 @@ Dynamics::Dynamics(
     declare_parameter("frequency", rclcpp::ParameterValue(10.0f));
     declare_parameter("model_state_frequency", rclcpp::ParameterValue(10.0f));
     declare_parameter("diagnostic_period", rclcpp::ParameterValue((rcl_duration_value_t)5));
-    declare_parameter("self_manage", rclcpp::ParameterValue(false));
     declare_parameter("joint_controller", rclcpp::ParameterValue("lss_joint_controller"));
     declare_parameter("effort_controller", rclcpp::ParameterValue("/effort_controller/commands"));
     //declare_parameter("joint_names", rclcpp::ParameterValue(std::vector<std::string>()));
@@ -65,20 +64,7 @@ Dynamics::Dynamics(
       is_simulation = true;
     }
 
-    if (get_parameter("self_manage").get_value<bool>()) {
-        change_state_request_ = std::make_shared<lifecycle_msgs::srv::ChangeState::Request>();
-        change_state_client_ = this->create_client<lifecycle_msgs::srv::ChangeState>(
-                std::string(get_name()) + "/change_state",
-                rmw_qos_profile_services_default,
-                nullptr);
-
-        RCLCPP_INFO(get_logger(), "Self-transitioning to CONFIGURE");
-        change_state_request_->transition.id = lifecycle_msgs::msg::Transition::TRANSITION_CONFIGURE;
-        change_state_request_->transition.label = "";
-        change_state_future_ = change_state_client_->async_send_request(change_state_request_);
-    }
-
-    model_ = std::make_shared<robotik::Model>();
+    self_managed = robotik::LifecycleManager::if_self_manage(*this);
 
     // intercept parameter changes
     old_parameter_set_callback = add_on_set_parameters_callback(std::bind(&Dynamics::parameter_set_callback, this, std::placeholders::_1));
@@ -88,28 +74,25 @@ void Dynamics::robot_model_callback(robotik::Model::SharedPtr model)
 {
     model_ = model;
 
-  auto numberOfJoints = model_->tree_->getNrOfJoints();
+    auto numberOfJoints = model_->tree_->getNrOfJoints();
 
-  // resize some messages
-  if(!compliance_params_msg_)
+    // resize some messages
+    if(!compliance_params_msg_)
       compliance_params_msg_ = std::make_shared<robot_model_msgs::msg::CompliantJointParams>();
-  compliance_params_msg_->joints = model_->getJoints();
-  compliance_params_msg_->gravity.resize(numberOfJoints);
+    compliance_params_msg_->joints = model_->getJoints();
+    compliance_params_msg_->gravity.resize(numberOfJoints);
 
-  ///
-  /// configure dynamics for new model
-  ///
-  control.active = true;
-  control.publishOdometry = false;
-  control.publishCompliance = true;
-  current.state = std::make_shared<robotik::State>(*model_);
+    ///
+    /// configure dynamics for new model
+    ///
+    control.active = true;
+    control.publishOdometry = false;
+    control.publishCompliance = true;
+    current.state = std::make_shared<robotik::State>(*model_);
 
-  // we can activate now if we havent already
-  if (get_parameter("self_manage").get_value<bool>()) {
-    RCLCPP_INFO(get_logger(), "Self-transitioning to ACTIVE");
-    change_state_request_->transition.id = lifecycle_msgs::msg::Transition::TRANSITION_ACTIVATE;
-    change_state_future_ = change_state_client_->async_send_request(change_state_request_);
-  }
+    // we can activate now if we havent already
+    if(self_managed)
+      self_managed->activate();
 }
 
 rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn
@@ -202,9 +185,6 @@ Dynamics::on_cleanup(const rclcpp_lifecycle::State &)
     odometry_pub_.reset();
     odometry_msg_.reset();
 
-    change_state_client_.reset();
-    change_state_request_.reset();
-
     return rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn::SUCCESS;
 }
 
@@ -226,9 +206,6 @@ Dynamics::on_shutdown(const rclcpp_lifecycle::State &)
 
     odometry_pub_.reset();
     odometry_msg_.reset();
-
-    change_state_client_.reset();
-    change_state_request_.reset();
 
     return rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn::SUCCESS;
 }
@@ -295,12 +272,8 @@ Dynamics::on_error(const rclcpp_lifecycle::State &)
 {
     RCLCPP_INFO(get_logger(), "robot dynamics has entered error state");
 
-    if (get_parameter("self_manage").get_value<bool>()) {
-        RCLCPP_INFO(get_logger(), "Self-transitioning to INACTIVE");
-        change_state_request_->transition.id = lifecycle_msgs::msg::Transition::TRANSITION_DEACTIVATE;
-        change_state_request_->transition.label = "";
-        change_state_future_ = change_state_client_->async_send_request(change_state_request_);
-    }
+    if(self_managed)
+        self_managed->deactivate("error occured");
     return rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn::SUCCESS;
 }
 

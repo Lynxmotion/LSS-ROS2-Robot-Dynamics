@@ -23,6 +23,7 @@
 #include <rclcpp_lifecycle/lifecycle_publisher.hpp>
 
 #include "../RobotIK/include/types.h"
+#include <publishers/LifecycleManager.h>
 #include <listeners/RobotDescriptionListener.h>
 
 #include <tf2_ros/buffer.h>
@@ -97,6 +98,8 @@ protected:
     // true if the environment is part of simulation
     bool is_simulation;
 
+    robotik::LifecycleManager::SharedPtr self_managed;
+
     robotik::RobotDescriptionListener::SharedPtr robot_description_listener;
 
     void robot_model_callback(robotik::Model::SharedPtr model);
@@ -107,10 +110,6 @@ protected:
     rclcpp::TimerBase::SharedPtr update_timer_;
     rclcpp::TimerBase::SharedPtr model_state_timer_;
     rclcpp::TimerBase::SharedPtr diag_timer_;
-
-    lifecycle_msgs::srv::ChangeState::Request::SharedPtr change_state_request_;
-    rclcpp::Client<lifecycle_msgs::srv::ChangeState>::SharedPtr change_state_client_;
-    rclcpp::Client<lifecycle_msgs::srv::ChangeState>::SharedFuture change_state_future_;
 
     // detect parameters modification during runtime
     rclcpp::node_interfaces::OnSetParametersCallbackHandle::SharedPtr old_parameter_set_callback;

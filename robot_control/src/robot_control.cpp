@@ -51,7 +51,6 @@ Control::Control(
     declare_parameter("publish_state_frequency", rclcpp::ParameterValue(0.0f));
     declare_parameter("preview_frequency", rclcpp::ParameterValue(0.0f));
     declare_parameter("diagnostic_period", rclcpp::ParameterValue((rcl_duration_value_t)5));
-    declare_parameter("self_manage", rclcpp::ParameterValue(false));
 
     declare_parameter("joint_controller", rclcpp::ParameterValue("lss_joint_controller"));
     declare_parameter("effort_controller", rclcpp::ParameterValue("/effort_controller/commands"));
@@ -61,18 +60,7 @@ Control::Control(
     declare_parameter(MODEL_STATE_TOPIC_PARAMETER, rclcpp::ParameterValue("robot_dynamics/model_state"));
     declare_parameter(TF_TOPIC_PARAMETER, rclcpp::ParameterValue("tf"));
 
-    if (get_parameter("self_manage").get_value<bool>()) {
-        change_state_request_ = std::make_shared<lifecycle_msgs::srv::ChangeState::Request>();
-        change_state_client_ = this->create_client<lifecycle_msgs::srv::ChangeState>(
-                std::string(get_name()) + "/change_state",
-                rmw_qos_profile_services_default,
-                nullptr);
-
-        RCLCPP_INFO(get_logger(), "Self-transitioning to CONFIGURE");
-        change_state_request_->transition.id = lifecycle_msgs::msg::Transition::TRANSITION_CONFIGURE;
-        change_state_request_->transition.label = "";
-        change_state_future_ = change_state_client_->async_send_request(change_state_request_);
-    }
+    self_managed = robotik::LifecycleManager::if_self_manage(*this);
 
     // intercept parameter changes
     old_parameter_set_callback = add_on_set_parameters_callback(std::bind(&Control::parameter_set_callback, this, std::placeholders::_1));
@@ -105,12 +93,8 @@ void Control::robot_model_callback(robotik::Model::SharedPtr model)
     // todo: is there a way we can exctract this from the URDF or SRDF?
     joint_control_publisher->set_joints(get_parameter("joint_names").get_value<std::vector<std::string>>());
 
-    // we can activate now if we havent already
-    if (get_parameter("self_manage").get_value<bool>()) {
-    RCLCPP_INFO(get_logger(), "Self-transitioning to ACTIVE");
-    change_state_request_->transition.id = lifecycle_msgs::msg::Transition::TRANSITION_ACTIVATE;
-    change_state_future_ = change_state_client_->async_send_request(change_state_request_);
-    }
+    if(self_managed)
+        self_managed->activate();
 }
 
 rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn
@@ -258,6 +242,9 @@ Control::on_cleanup(const rclcpp_lifecycle::State &)
     // free our channels
     update_timer_.reset();
     diag_timer_.reset();
+    preview_timer_.reset();
+    progress_timer_.reset();
+    publish_state_timer_.reset();
 
     model_->clear();
 
@@ -270,9 +257,6 @@ Control::on_cleanup(const rclcpp_lifecycle::State &)
 
     control_state_pub_.reset();
     control_state_msg_.reset();
-
-    change_state_client_.reset();
-    change_state_request_.reset();
 
     return rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn::SUCCESS;
 }
@@ -284,6 +268,9 @@ Control::on_shutdown(const rclcpp_lifecycle::State &)
 
     update_timer_.reset();
     diag_timer_.reset();
+    preview_timer_.reset();
+    progress_timer_.reset();
+    publish_state_timer_.reset();
 
     robot_description_listener.reset();
 
@@ -296,9 +283,6 @@ Control::on_shutdown(const rclcpp_lifecycle::State &)
 
     control_state_pub_.reset();
     control_state_msg_.reset();
-
-    change_state_client_.reset();
-    change_state_request_.reset();
 
     return rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn::SUCCESS;
 }
@@ -352,13 +336,8 @@ rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn
 Control::on_error(const rclcpp_lifecycle::State &)
 {
     RCLCPP_INFO(get_logger(), "robot control has entered error state");
-
-    if (get_parameter("self_manage").get_value<bool>()) {
-        RCLCPP_INFO(get_logger(), "Self-transitioning to INACTIVE");
-        change_state_request_->transition.id = lifecycle_msgs::msg::Transition::TRANSITION_DEACTIVATE;
-        change_state_request_->transition.label = "";
-        change_state_future_ = change_state_client_->async_send_request(change_state_request_);
-    }
+    if(self_managed)
+        self_managed->deactivate("error occured");
     return rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn::SUCCESS;
 }
 
