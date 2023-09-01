@@ -4,7 +4,7 @@
 
 #include <robot_control/trajectory/single-effector.h>
 
-#include <tf2_kdl/tf2_kdl.h>
+#include <tf2_kdl/tf2_kdl.hpp>
 
 namespace robotik::trajectory {
 

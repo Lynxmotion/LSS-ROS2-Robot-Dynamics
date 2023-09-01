@@ -5,7 +5,7 @@
 #include <robot_control/trajectory/linear-trajectory.h>
 #include <conversions.h>
 
-#include <tf2_kdl/tf2_kdl.h>
+#include <tf2_kdl/tf2_kdl.hpp>
 
 namespace robotik::trajectory {
 

@@ -412,7 +412,7 @@ void Control::publish_control_state() try
 
     auto limb_count = (short)limbs_.size();
 
-#if 0       // todo: only control program should dictate if leg is supporting or not
+#if 0       // todo: only control program should dictate if leg is supporting or not (or publish in a contact_dynamics node)
     // figure out what limbs are supporting
     std::vector<bool> supporting(limb_count, false);
     for(const auto& contact : current->contacts) {
@@ -684,11 +684,12 @@ bool Control::update_target(const State& current, rclcpp::Time _now)
 {
     if(!target) {
         resetTarget(current);
-        if(!target)
+        if(!target) {
             // failed to establish target state from current
             RCLCPP_WARN_THROTTLE(get_logger(), *get_clock(), 5000,
                              "failed to reset target state from current");
             return false;
+        }
     }
 
     KDL::Frame robot_current_tf;
