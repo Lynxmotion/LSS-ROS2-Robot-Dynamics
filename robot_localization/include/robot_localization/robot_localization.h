@@ -23,6 +23,8 @@
 #include <robotik.h>
 #include <raf.h>
 #include <publishers/LifecycleManager.h>
+#include <listeners/RobotDescriptionListener.h>
+#include <listeners/ModelStateListener.h>
 
 #include <memory>
 #include <string>
@@ -59,15 +61,21 @@ public:
 
 protected:
     robotik::LifecycleManager::SharedPtr self_managed;
+    robotik::Model::SharedPtr model_;
+    robotik::State::SharedPtr state;
 
     // process current state and produce odometry data
     void update();
 
-    rclcpp::Subscription<robot_model_msgs::msg::ModelState>::SharedPtr model_state_subscription_;
-    void model_state_callback(robot_model_msgs::msg::ModelState::SharedPtr msg);
+    robotik::ModelStateListener::SharedPtr model_state_listener;
+    void robot_model_callback(robotik::Model::SharedPtr model);
 
-    rclcpp::Subscription<robot_model_msgs::msg::ControlState>::SharedPtr control_state_subscription_;
-    void control_state_callback(robot_model_msgs::msg::ControlState::SharedPtr msg);
+    robotik::RobotDescriptionListener::SharedPtr robot_description_listener;
+
+    // IMU sense
+    sensor_msgs::msg::Imu imu_;
+    rclcpp::Subscription<sensor_msgs::msg::Imu>::SharedPtr subscription_imu_;
+    void imu_callback(sensor_msgs::msg::Imu::SharedPtr imu);
 
     // odometry publisher
     nav_msgs::msg::Odometry::SharedPtr odometry_msg_;
