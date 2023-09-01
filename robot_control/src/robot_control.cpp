@@ -324,6 +324,8 @@ Control::on_deactivate(const rclcpp_lifecycle::State &)
 {
     RCLCPP_INFO(get_logger(), "deactivating robot control");
 
+    kinematics.deactivate();
+
     joint_control_publisher->on_deactivate();
 
     model_->on_deactivate();
@@ -818,8 +820,8 @@ bool Control::update_target(const State& current, rclcpp::Time _now)
             kinematics.invalidate(l_name, LimbKinematics::JOINTS);
         } else if(limb.status == Effector::Status::Seeking || limb.status == Effector::Status::Supporting) {
             // perform inverse kinematics based on Limb targets
-            auto target_tf = robot_target_tf * limb.target;
-            kinematics.moveEffector(*target, l_name, target_tf);
+            //auto target_tf = robot_target_tf * limb.target;
+            //auto target_tf = limb.target;
             joint_control_publisher->set_joint_effort(limb.model->joint_names, 2.0);
         } else if (limb.status == Effector::Status::Holding) {
             // We want to maintain position so we should not copy from current,
@@ -827,6 +829,8 @@ bool Control::update_target(const State& current, rclcpp::Time _now)
             // tldr; do nothing
             joint_control_publisher->set_joint_effort(limb.model->joint_names, 2.0);
         }
+
+        kinematics.moveEffector(*target, l_name, limb.target);
     }
 
     lastUpdate = _now;

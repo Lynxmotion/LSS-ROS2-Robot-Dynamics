@@ -26,6 +26,7 @@
 #include <limb.h>
 #include <raf.h>
 #include <kinematics.h>
+#include <robot_control/tree-kinematics.h>
 #include <publishers/LifecycleManager.h>
 #include <listeners/JointStateListener.h>
 #include <listeners/ModelStateListener.h>
@@ -126,7 +127,7 @@ protected:
         lastUpdate,
         last_static_publish_target;
 
-    Kinematics kinematics;
+    TreeKinematics kinematics;
 
     // list of actions being performed on the robot limbs/effectors
     trajectory::TrajectoryActions actions;

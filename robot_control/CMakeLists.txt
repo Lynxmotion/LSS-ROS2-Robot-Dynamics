@@ -1,7 +1,9 @@
 
 set(INCLUDE_FILES
         robot_control.h
+        tree-kinematics.h
         trajectory/path-rounded-composite.h
+        trajectory/treeiksolverpos_online.hpp
         trajectory/environment.h
         trajectory/expression.h
         trajectory/rendering.h
@@ -11,7 +13,9 @@ set(INCLUDE_FILES
         trajectory/coordinated-effectors.h)
 set(SOURCE_FILES
         robot_control.cpp
+        tree-kinematics.cpp
         trajectory/path-rounded-composite.cpp
+        trajectory/treeiksolverpos_online.cpp
         trajectory/expression.cpp
         trajectory/rendering.cpp
         trajectory/action.cpp
