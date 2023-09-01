@@ -32,7 +32,6 @@ ament_target_dependencies(robot_dynamics
         "orocos_kdl"
         "kdl_parser")
 
-ament_export_libraries(robot_dynamics)
 
 install(TARGETS robot_dynamics
         EXPORT export_${PROJECT_NAME}

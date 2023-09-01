@@ -57,7 +57,6 @@ ament_target_dependencies(robot_control
         "orocos_kdl"
         "kdl_parser")
 
-ament_export_libraries(robot_control)
 
 install(TARGETS robot_control
         EXPORT export_${PROJECT_NAME}

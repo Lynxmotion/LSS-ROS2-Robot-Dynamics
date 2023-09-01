@@ -34,8 +34,6 @@ ament_target_dependencies(robot_localization
         "rclcpp_components"
         "rclcpp_lifecycle")
 
-ament_export_libraries(robot_localization)
-
 install(TARGETS robot_localization
         EXPORT export_${PROJECT_NAME}
         #DESTINATION lib/${PROJECT_NAME}
