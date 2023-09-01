@@ -18,7 +18,7 @@ LifecycleManager::LifecycleManager(rclcpp_lifecycle::LifecycleNode& host_node, s
     change_state_request_ = std::make_shared<lifecycle_msgs::srv::ChangeState::Request>();
     change_state_client_ = host_node.create_client<lifecycle_msgs::srv::ChangeState>(
             target_node_name + "/change_state",
-            rmw_qos_profile_services_default,
+            rclcpp::ServicesQoS(),
             nullptr);
 }
 

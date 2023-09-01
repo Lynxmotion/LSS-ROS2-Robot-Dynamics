@@ -47,14 +47,15 @@ JointControlPublisher::JointControlPublisher(
 
     // ability to control state of the joint controller
     // tutorial: https://github.com/ros2/demos/blob/master/lifecycle/src/lifecycle_service_client.cpp
+    auto qos = rclcpp::ServicesQoS();
     jointctrl_change_state_request_ = std::make_shared<lifecycle_msgs::srv::ChangeState::Request>();
     jointctrl_get_state_client_ = node.create_client<lifecycle_msgs::srv::GetState>(
             position_controller_name + "/get_state",
-            rmw_qos_profile_services_default,
+            qos,
             nullptr);
     jointctrl_change_state_client_ = node.create_client<lifecycle_msgs::srv::ChangeState>(
             position_controller_name + "/change_state",
-            rmw_qos_profile_services_default,
+            qos,
             nullptr);
 }
 
