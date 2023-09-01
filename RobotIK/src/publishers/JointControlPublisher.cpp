@@ -121,10 +121,10 @@ void JointControlPublisher::activate_position_controller(bool active)
 {
     if(active)  {
         jointctrl_change_state_request_->transition.id = lifecycle_msgs::msg::Transition::TRANSITION_ACTIVATE;
-        jointctrl_change_state_future_ = jointctrl_change_state_client_->async_send_request(jointctrl_change_state_request_);
+        jointctrl_change_state_future_ = jointctrl_change_state_client_->async_send_request(jointctrl_change_state_request_).future.share();
     } else {
         jointctrl_change_state_request_->transition.id = lifecycle_msgs::msg::Transition::TRANSITION_DEACTIVATE;
-        jointctrl_change_state_future_ = jointctrl_change_state_client_->async_send_request(jointctrl_change_state_request_);
+        jointctrl_change_state_future_ = jointctrl_change_state_client_->async_send_request(jointctrl_change_state_request_).future.share();
     }
 }
 

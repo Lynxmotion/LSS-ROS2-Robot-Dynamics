@@ -44,7 +44,7 @@ LifecycleManager::SharedFuture LifecycleManager::configure(std::string label)
     RCLCPP_INFO(logger, "transitioning to CONFIGURE");
     change_state_request_->transition.id = lifecycle_msgs::msg::Transition::TRANSITION_CONFIGURE;
     change_state_request_->transition.label = label;
-    return change_state_client_->async_send_request(change_state_request_);
+    return change_state_client_->async_send_request(change_state_request_).future.share();
 }
 
 LifecycleManager::SharedFuture LifecycleManager::activate(std::string label)
@@ -52,7 +52,7 @@ LifecycleManager::SharedFuture LifecycleManager::activate(std::string label)
     RCLCPP_INFO(logger, "transitioning to ACTIVE");
     change_state_request_->transition.id = lifecycle_msgs::msg::Transition::TRANSITION_ACTIVATE;
     change_state_request_->transition.label = label;
-    return change_state_client_->async_send_request(change_state_request_);
+    return change_state_client_->async_send_request(change_state_request_).future.share();
 }
 
 LifecycleManager::SharedFuture LifecycleManager::deactivate(std::string label)
@@ -60,7 +60,7 @@ LifecycleManager::SharedFuture LifecycleManager::deactivate(std::string label)
     RCLCPP_INFO(logger, "transitioning to DEACTIVATED");
     change_state_request_->transition.id = lifecycle_msgs::msg::Transition::TRANSITION_DEACTIVATE;
     change_state_request_->transition.label = label;
-    return change_state_client_->async_send_request(change_state_request_);
+    return change_state_client_->async_send_request(change_state_request_).future.share();
 }
 
 LifecycleManager::SharedFuture LifecycleManager::shutdown(uint8_t shutdown_type, std::string label)
@@ -68,7 +68,7 @@ LifecycleManager::SharedFuture LifecycleManager::shutdown(uint8_t shutdown_type,
     RCLCPP_INFO(logger, "transitioning to SHUTDOWN");
     change_state_request_->transition.id = shutdown_type;
     change_state_request_->transition.label = label;
-    return change_state_client_->async_send_request(change_state_request_);
+    return change_state_client_->async_send_request(change_state_request_).future.share();
 }
 
 } // ns::robotik
