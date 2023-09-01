@@ -69,7 +69,7 @@ public:
         KDL::Frame target;
 
         inline explicit State(Mode _mode = Mode::Limp)
-        : mode(_mode)
+        : mode(_mode), status(Status::Limp)
         {}
 
         ///@brief Returns true if the effector is supporting the robot

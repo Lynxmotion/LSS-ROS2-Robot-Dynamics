@@ -185,10 +185,11 @@ void JointControlPublisher::publish_efforts(const rclcpp::Time& now) {
 void JointControlPublisher::publish(const rclcpp::Time& now) {
     publish_joint_trajectory(now);
 
-    double last_efforts_update_secs = (last_efforts_update.get_clock_type() == RCL_ROS_TIME)
-            ? (now - last_efforts_update).seconds()
-            : 0.0;
+    if(last_efforts_update.get_clock_type() != RCL_ROS_TIME) {
+        last_efforts_update = now;
+    }
 
+    double last_efforts_update_secs = (now - last_efforts_update).seconds();
     if(efforts_updated || last_efforts_update_secs < 1.0)
         publish_efforts(now);
 }

@@ -62,6 +62,8 @@ public:
 
     [[nodiscard]] inline unsigned int getNrOfJoints() const { return chain->getNrOfJoints(); }
 
+    [[nodiscard]] std::vector<std::string> getKinematicJoints() const;
+
     ///@brief load limb data and allocate memory for internal variables
     bool on_activate();
 

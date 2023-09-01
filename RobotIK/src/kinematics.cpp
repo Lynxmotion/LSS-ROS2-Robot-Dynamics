@@ -407,7 +407,7 @@ bool Kinematics::compute_TF_CoM(const KDL::SegmentMap::const_iterator& currentSe
 {
     // if this joint is part of a limb then we stop recursing
     // since limbs are updated with IK
-    auto joint = currentSeg->second.segment.getJoint();
+    const auto& joint = currentSeg->second.segment.getJoint();
     if(limbs_first_joint.find(joint.getName()) != limbs_first_joint.end())
         return true;
 
@@ -454,7 +454,7 @@ bool Kinematics::compute_TF_CoM(const KDL::SegmentMap::const_iterator& currentSe
             return false;
     }
     return true;
-                           }
+}
 
 
 }  //ns:robotik

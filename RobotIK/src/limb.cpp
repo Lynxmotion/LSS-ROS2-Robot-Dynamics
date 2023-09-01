@@ -75,6 +75,21 @@ bool Limb::on_deactivate() {
     return true;
 }
 
+std::vector<std::string> Limb::getKinematicJoints() const
+{
+    // get information about the chain
+    std::vector<std::string> names;
+    auto nj = chain->getNrOfSegments();
+    for(unsigned int s=0; s<nj; s++) {
+        const auto& segment = chain->getSegment(s);
+        const auto& joint = segment.getJoint();
+
+        if(joint.getType() != KDL::Joint::None)
+            names.push_back(joint.getName());
+    }
+    return names;
+}
+
 void Limb::loadSupportPolygon(urdf::ModelInterfaceSharedPtr urdf_model_) {
     urdf::LinkConstSharedPtr eff_link =  urdf_model_->getLink(link);
     assert(eff_link);

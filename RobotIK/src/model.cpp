@@ -13,7 +13,7 @@
 #include <pcl/surface/convex_hull.h>
 #include <pcl/point_types.h>
 
-#include <tf2_kdl/tf2_kdl.h>
+#include <tf2_kdl/tf2_kdl.hpp>
 #include <kdl_parser/kdl_parser.hpp>
 #include <kdl/treeidsolver_recursive_newton_euler.hpp>
 
@@ -570,7 +570,7 @@ bool Model::compute_TF_CoM(const KDL::SegmentMap::const_iterator& currentSeg,
                            const KDL::Frame& tf, robotik::State& state)
 {
     KDL::Frame jnt_tf, fparent, fchild;
-    auto joint = currentSeg->second.segment.getJoint();
+    const auto& joint = currentSeg->second.segment.getJoint();
     std::string child_name = currentSeg->first;
 
     if(child_name == footprint_link || child_name == base_link) {

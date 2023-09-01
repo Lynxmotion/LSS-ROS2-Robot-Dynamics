@@ -13,13 +13,14 @@
 #include <kdl/jntarray.hpp>
 #include <kdl/frames.hpp>
 #include <kdl/treeidsolver.hpp>
+#include <kdl/treeiksolver.hpp>
 
 namespace robotik {
 
 class Model;
 
 using Names = std::vector<std::string>;
-using SegmentTransforms = std::map<std::string, KDL::Frame>;
+using SegmentTransforms = KDL::Frames; // std::map<std::string, KDL::Frame>;
 
 typedef enum {
     MeasuredState,
