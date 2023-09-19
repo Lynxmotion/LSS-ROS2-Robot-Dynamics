@@ -132,9 +132,12 @@ segment element in itself, both estimating it's time and building Orocos traject
      be the input and motor-command is the output. This is establishing memory of what I attained apriori to re-acquire the
      same result later.
 
+# Knowledge Representation
+Excellent seminar on this by Michael Beetz, University of Bremen
+http://www.open-ease.org/
 
 
-Operators
+# Operators
 SymbolicOperators - when a given symbol is encountered (ex. odometry goal, footstep, grasp object) this operator generates more
                     frames or elements. Such as turning a odometry goal into a walking path, or turning a walking path into footsteps.
 InterpolationOperators or StateOperators - 
@@ -289,8 +292,6 @@ Problem was plugin must disconnect from Gazebo before releasing the Executer.
 * that Node also has an executer, could we use it to run our controllers?
 
 
-NODE RELEASE TO EARLY
-[ERROR] [1605591889.728949647] [rclcpp]: Error in destruction of rcl service handle: the Node Handle was destructed too early. You will leak memory
 
 Possibly similar bug in all the gazebo_plugins:
 futex_wait_cancelable 0x00007f493481f376
@@ -761,32 +762,79 @@ to become standalone nodes which can run on a desktop alongside RViz.
 - Remove visual code from robot dynamics, ensure we are publishing target and trajectory state in the right places (as namespaces)
 - Create new C++ project that subscribes to published states and  visualizes on RViz2
 
-
-# CURRENT ISSUE
-* Execute mode wont work
-    - add leg origin option to limbs  (actually we dont need this to specify coordinates)
-    - add polar coordinates mode   (only does x,y so z remains in rectangular space)
-
+12:51:55 110W
 
 # TRAJECTORY ACTION SERVICES
 we could have a single limb action and coordinated (multiple) limb actions. We should create action service classes for each type just like we do
 for listeners and broadcasters since each action service class type requires custom action messages for goal, progress and result. However they
 must add into a single Action list since new actions must cancel any pre-existing limb operations.
     * Will the main Control class or Action service classes do the pre-existing search and cancel behavior? (I would rather Control class do it)
-# Final TODO
-- Relook at robot_control::publish_control_state (it might be wrong, especially the body effector)
-* Limbs should be read in from URDF/SRDF into Model, but copied to state/control during activation and used from there, no more model access needed
-* implement the following missing parts:
-    - LimbState::velocity
-    - Contact::slippage - whatever this is supposed to be..a metric og how likely a limb will slip? or a measure of how much it has slipped?
+# Low Priority
+- Motors seem to be set to low rigidity
+- push common code to Robot.py lib
+- only publish some data when publisher->get_subscription_count() is non-zero
+## Trajectories
+- Implement body/base effector(s)
+   - complete base effector support to trajectory actions
+- Add polar coordinates mode to expressions   (only does x,y so z remains in rectangular space)
+- Trajectory cancelling and mixing
+   - Instead of erasing old trajectory immediately, we could save it to extract the target position/velocity and mix with the new one
+   - if new trajectory is in the future, merge with new one by extracting composite path and adding to new one until ts-start
+   - mix splice area by parametered amount of seconds, or perhaps better yet only if user specifies a ts-start in the future, we then morph
+     old trajectories path from current to the first endpoint of the new
+- implement sync_duration option in Coordinated and Linear Trajectory
+## Contact Localization Node
+- Limb::State only needed for updateContacts() and updateNailedContacts() so seperate Contact detection to a seperate class
 - In dynamics, maybe add floor/contact delta to odom instead of body, thus in control we take odom straight from current state
-    - for now, binding position only on target to current
-- Implement body/base effector(s)?
-    - updating base effector may just update other limbs instead of the actual base (which is updated by IMU/contactor)
-- Make LifecycleStateService and ControllerManagerService for activating ros2_controls, etc
-## Active TODO
-- Refactor the single action service into a class
-    - Control should now use this class and contain very little service code
+   - for now, binding position only on target to current
+- Contact::slippage - whatever this is supposed to be..a metric og how likely a limb will slip? or a measure of how much it has slipped?
+# Final TODO
+- Implement kinematics using Orocos Tree solvers
+- migrate the support_margin calculation to Control
+- Remove Limb States from Model
+   - add to Control only, most of Model only uses Limb models not state (ex. support polygon)
+   - requires moving updateContacts/NailedContacts() to Localization node
+- add motor reset side-channel
+## Release TODO
+- Implement LimbState rotational velocity
+   - fix trajectories always starts at velocity 0, have it start at current velocity
+   - linear velocity is done, but rotational diff(...) is returning bad results
+   - need to apply to single and coordinated trajectories too
+
+
+# Tree Solver
+- populate endpoints_ directly from limbs; get rid of effector_updates
+How it works:
+The Online solver works in velocity q-dot space:
+- get the current endpoint frame using FK and the input "guess" joint angles
+- get the twist by taking the diff() between the above frame and the desired frame
+	- this is then limited by the cartesian velocity, so vel limit must be a update-rate limit not per-sec
+- save the twist of each endpoint, then pass into the IK velocity solver
+	- we pass in the "input cartesian velocity" and we get back "output joint velocities", so the IK is converting between cart to joint here
+- enforce the joint velocity limits
+- add the joint velocity to the current joint positions (integrate)
+
+
+# Base Transformations
+I think we have this a bit wrong...we have no actual direct control over the base, so we absolutely cant transform the base as a segment. We
+must transform it using operations on the supporting feet. (FYI If no feet, then transform cant be done.) So make base target = current, and
+be done with it.
+- setting base target<=current works, the robot base translation is causing legs to move and the robot to walk. Y is aligned with forward/back
+- however, once legs move, they change state (mode or supporting flag?) and they no longer are affected by base move translations
+
+
+
+# Robot Localization
+Basic node is created with subscriptions to Robot Model and Control State and Odometry publisher.
+- Will need to load URDF since in order to detect contact we have to have the point cloud of the effector
+- misewell do contact detection using collision model then
+    - possibly robot_dynamics could detect collision, but do nothing, just publish the data..but requries ground map right?
+- port Model::updateContacts() to be the main update() code for the localizer
+- port Model::updateNailedContacts() to take nailed feet info, route back through robot base_link, and compute base_pose change to keep
+  the nailed feet in the same position
+- pull in IMU data
+- compute the odometry estimate
+  - add a fusion model? perhaps based on R_L
 
 
 # CONTROL ALGORITHM
@@ -805,10 +853,64 @@ to hit commanded base?
   	- Means all model publish or Limb functions would need to be refactored out or something - maybe not a bad thing. Create broadcaster classes.
 * Have a rigidity control per axis per limb. Each joint's stiffness will then be controlled based on the joint axis. Can have moving and holding stiffness.
 
+# Control during different contact modes
+- How does status work wrt support?
+  - If mode=AutoSupport then status will be Holding or Supporting depending on contact-detection
+  - If mode=Support and contact-detection doesnt detect it's supporting should status be Supporting or Holding?
+
+# Hexapod Walking Algorithm (beat mix)
+- leg tri-sets often move at the same time, have legs try to lift as close to a beat as possible
+  - so maybe establish a beat, then just don't lift legs if they are already in the target spot...
+      - except when little motion is occuring we enable leg adjustments on beat
+      - so we need an activity metric, and the lower the activity metric the more sensitive the adjustment metric (more likely to adjust)
+  - each beat, take the tri-set with the lowest support margin estimate
+  - legs sets may still move anytime (under strange command input) but the beat should establish a regular pattern normally
+
+
 # ERRORS
+# !! model reference is going NULL
+- possibly in TrajectoryRenderEnv?
+- Model destructor is not getting called, so the class isnt being freed (so probably not a refcount issue)
+- not due to lifecycle state change
+
+# abort when debugger breaks
 terminate called after throwing an instance of 'rclcpp::exceptions::RCLError'
   what():  goal_handle attempted invalid transition from state EXECUTING with event CANCELED, at /tmp/binarydeb/ros-galactic-rcl-action-3.1.2/src/rcl_action/goal_handle.c:95
       ^^ might be caused by exception in publish()
+# Stack Smashing
+[INFO] [1641423126.568857848] [robot_control]: Segment left-front in goal request doesn't exist in state
+*** stack smashing detected ***: terminated
+Signal: SIGABRT (Aborted)
+# Action contention (happened with leg adjustment)
+terminate called after throwing an instance of 'rclcpp::exceptions::RCLError'
+  what():  goal_handle attempted invalid transition from state EXECUTING with event CANCELED, at /tmp/binarydeb/ros-galactic-rcl-action-3.1.2/src/rcl_action/goal_handle.c:95
+Signal: SIGABRT (Aborted)
+
+
+# Rotate the base body
+ros2 action send_goal /robot_control/linear_trajectory robot_model_msgs/action/LinearEffectorTrajectory "header:
+  stamp:
+    sec: 0
+    nanosec: 0
+  frame_id: ''
+id: 'turn'
+linear_acceleration: 0.0
+angular_acceleration: 0.1
+mode_in: 3
+effectors: ['base_link']
+velocity: [{linear:{x: 0.0,y: 0.0,z: 0.0},angular:{x: 0.0,y: 0.0,z: 0.1}}]
+"
+
+ros2 service call /robot_control/reset robot_model_msgs/srv/Reset "target_state: true
+trajectories: false
+limp: true
+"
+
+ros2 service call /robot_control/reset robot_model_msgs/srv/Reset "target_state: true
+trajectories: false
+limp: true
+"
+
 
 
 # Webots Simulation TODO
@@ -824,24 +926,9 @@ terminate called after throwing an instance of 'rclcpp::exceptions::RCLError'
 * how does the webots_ros2_driver and webots_ros2_control nodes work?
 
 
-# Robot HAT
-- Compute Module 4
-- Battery charger
-- Teensy-like ARM32
-  - Fan PWM?
-- CPLD
-  - Serial port MUX between RPi, Teensy and LSS bus ports
-  - RPi power button mgmt
-  - OLED 0.96
-- 4PPoE/PPOE++  (up to 95W, 48v)
-  - https://www.newegg.com/p/1B4-08DB-000N7
-
-
-
 
 
 # SCHOOL DEMO
-- Finish walking algorithm
 - auto start Ros2 controllers
     - see this file for one way to start ros2 controllers
     - https://github.com/ros-planning/moveit2/blob/main/moveit_ros/moveit_servo/launch/servo_cpp_interface_demo.launch.py
@@ -905,12 +992,13 @@ ros2 topic pub --once /forward_position_controller/commands std_msgs/msg/Float64
 ros2 topic pub --once /forward_position_controller/commands std_msgs/msg/Float64MultiArray "data: [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]"
 ros2 topic pub --once /forward_position_controller/commands std_msgs/msg/Float64MultiArray "data: [2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2]"
 ros2 topic pub --once /forward_position_controller/commands std_msgs/msg/Float64MultiArray "data: [3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3]"
-ros2 topic pub --once /forward_position_controller/commands std_msgs/msg/Float64MultiArray "data: [10,10,10,10,10,10,10,10,10,10,10,10,10,10,10,10,10,10]"
+ros2 topic pub --once /effort_controller/commands std_msgs/msg/Float64MultiArray "data: [10,10,10,10,10,10,10,10,10,10,10,10,10,10,10,10,10,10]"
 ros2 topic pub --once /forward_position_controller/commands std_msgs/msg/Float64MultiArray "data: [10, 10, 10, 10, 10, 10,  1,  1,  1, 10, 10, 10, 10, 10, 10, 1, 1, 1]"
 
 -- enable motors on test rig
 ros2 topic pub --once /effort_controller/commands std_msgs/msg/Float64MultiArray "data: [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]"
 ros2 topic pub --once /effort_controller/commands std_msgs/msg/Float64MultiArray "data: [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]"
+ros2 topic pub --once /effort_controller/commands std_msgs/msg/Float64MultiArray "data: [10,10,10,10,10,10,10,10,10,10,10,10,10,10,10,10,10,10]"
 
 -- set position on test rig, must send to all joints or PJC bitches
 ros2 topic pub --once /position_trajectory_controller/joint_trajectory trajectory_msgs/msg/JointTrajectory "joint_names: [J0, J5]
@@ -1130,8 +1218,6 @@ ln -s /home/guru/src/lss-humanoid/ros2/humanoid/src/lss_hardware/cmake-build-deb
 ** but if you edit configuration and add Install to pre-launch steps then it will install everything and debug works
 
 ros2 launch gazebo_ros2_control_demos cart_example_position.launch.py
-
-
 
 
 
